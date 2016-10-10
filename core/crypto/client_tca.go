@@ -20,19 +20,18 @@ import (
 	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
 
 	"bytes"
-	"crypto/ecdsa"
 	"crypto/hmac"
 
 	"errors"
 	"fmt"
 
-	"math/big"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"golang.org/x/net/context"
+	"github.com/hyperledger/fabric/core/crypto/bccsp"
 )
 
 func (client *clientImpl) initTCertEngine() (err error) {
@@ -165,73 +164,24 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 		// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
 		// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
 
-		// Compute temporary secret key
-		tempSK := &ecdsa.PrivateKey{
-			PublicKey: ecdsa.PublicKey{
-				Curve: client.enrollPrivKey.Curve,
-				X:     new(big.Int),
-				Y:     new(big.Int),
-			},
-			D: new(big.Int),
+		csp, err := bccsp.GetDefault()
+		if err != nil {
+			client.Errorf("Failed getting BCCSP: [%s].", err)
+
+			return nil, err
 		}
 
-		var k = new(big.Int).SetBytes(ExpansionValue)
-		var one = new(big.Int).SetInt64(1)
-		n := new(big.Int).Sub(client.enrollPrivKey.Params().N, one)
-		k.Mod(k, n)
-		k.Add(k, one)
-
-		tempSK.D.Add(client.enrollPrivKey.D, k)
-		tempSK.D.Mod(tempSK.D, client.enrollPrivKey.PublicKey.Params().N)
-
-		// Compute temporary public key
-		tempX, tempY := client.enrollPrivKey.PublicKey.ScalarBaseMult(k.Bytes())
-		tempSK.PublicKey.X, tempSK.PublicKey.Y =
-			tempSK.PublicKey.Add(
-				client.enrollPrivKey.PublicKey.X, client.enrollPrivKey.PublicKey.Y,
-				tempX, tempY,
-			)
-
-		// Verify temporary public key is a valid point on the reference curve
-		isOn := tempSK.Curve.IsOnCurve(tempSK.PublicKey.X, tempSK.PublicKey.Y)
-		if !isOn {
-			client.Warning("Failed temporary public key IsOnCurve check. This is an foreign certificate.")
-
-			return &tCertImpl{client, x509Cert, nil, []byte{}}, nil
-		}
-
-		// Check that the derived public key is the same as the one in the certificate
-		certPK := x509Cert.PublicKey.(*ecdsa.PublicKey)
-
-		if certPK.X.Cmp(tempSK.PublicKey.X) != 0 {
-			client.Warning("Derived public key is different on X. This is an foreign certificate.")
-
-			return &tCertImpl{client, x509Cert, nil, []byte{}}, nil
-		}
-
-		if certPK.Y.Cmp(tempSK.PublicKey.Y) != 0 {
-			client.Warning("Derived public key is different on Y. This is an foreign certificate.")
+		tempSK, err := csp.DeriveKey(client.enrollPrivKey, &bccsp.ECDSAReRandKeyOpts{Temporary: true, Expansion: ExpansionValue})
+		if err != nil {
+			client.Errorf("Failed getting BCCSP: [%s].", err)
 
 			return &tCertImpl{client, x509Cert, nil, []byte{}}, nil
 		}
 
 		// Verify the signing capability of tempSK
-		err = primitives.VerifySignCapability(tempSK, x509Cert.PublicKey)
+		err = client.verifySignCapability(tempSK, x509Cert.PublicKey)
 		if err != nil {
 			client.Warning("Failed verifing signing capability [%s]. This is an foreign certificate.", err.Error())
-
-			return &tCertImpl{client, x509Cert, nil, []byte{}}, nil
-		}
-
-		// Marshall certificate and secret key to be stored in the database
-		if err != nil {
-			client.Warningf("Failed marshalling private key [%s]. This is an foreign certificate.", err.Error())
-
-			return &tCertImpl{client, x509Cert, nil, []byte{}}, nil
-		}
-
-		if err = primitives.CheckCertPKAgainstSK(x509Cert, interface{}(tempSK)); err != nil {
-			client.Warningf("Failed checking TCA cert PK against private key [%s]. This is an foreign certificate.", err.Error())
 
 			return &tCertImpl{client, x509Cert, nil, []byte{}}, nil
 		}
@@ -300,73 +250,24 @@ func (client *clientImpl) getTCertFromDER(certBlk *TCertDBBlock) (certBlock *TCe
 	// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
 	// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
 
-	// Compute temporary secret key
-	tempSK := &ecdsa.PrivateKey{
-		PublicKey: ecdsa.PublicKey{
-			Curve: client.enrollPrivKey.Curve,
-			X:     new(big.Int),
-			Y:     new(big.Int),
-		},
-		D: new(big.Int),
+	csp, err := bccsp.GetDefault()
+	if err != nil {
+		client.Errorf("Failed getting BCCSP: [%s].", err)
+
+		return nil, err
 	}
 
-	var k = new(big.Int).SetBytes(ExpansionValue)
-	var one = new(big.Int).SetInt64(1)
-	n := new(big.Int).Sub(client.enrollPrivKey.Params().N, one)
-	k.Mod(k, n)
-	k.Add(k, one)
-
-	tempSK.D.Add(client.enrollPrivKey.D, k)
-	tempSK.D.Mod(tempSK.D, client.enrollPrivKey.PublicKey.Params().N)
-
-	// Compute temporary public key
-	tempX, tempY := client.enrollPrivKey.PublicKey.ScalarBaseMult(k.Bytes())
-	tempSK.PublicKey.X, tempSK.PublicKey.Y =
-		tempSK.PublicKey.Add(
-			client.enrollPrivKey.PublicKey.X, client.enrollPrivKey.PublicKey.Y,
-			tempX, tempY,
-		)
-
-	// Verify temporary public key is a valid point on the reference curve
-	isOn := tempSK.Curve.IsOnCurve(tempSK.PublicKey.X, tempSK.PublicKey.Y)
-	if !isOn {
-		client.Error("Failed temporary public key IsOnCurve check.")
+	tempSK, err := csp.DeriveKey(client.enrollPrivKey, &bccsp.ECDSAReRandKeyOpts{false, ExpansionValue})
+	if err != nil {
+		client.Errorf("Failed getting BCCSP: [%s].", err)
 
 		return nil, fmt.Errorf("Failed temporary public key IsOnCurve check.")
 	}
 
-	// Check that the derived public key is the same as the one in the certificate
-	certPK := x509Cert.PublicKey.(*ecdsa.PublicKey)
-
-	if certPK.X.Cmp(tempSK.PublicKey.X) != 0 {
-		client.Error("Derived public key is different on X")
-
-		return nil, fmt.Errorf("Derived public key is different on X")
-	}
-
-	if certPK.Y.Cmp(tempSK.PublicKey.Y) != 0 {
-		client.Error("Derived public key is different on Y")
-
-		return nil, fmt.Errorf("Derived public key is different on Y")
-	}
-
 	// Verify the signing capability of tempSK
-	err = primitives.VerifySignCapability(tempSK, x509Cert.PublicKey)
+	err = client.verifySignCapability(tempSK, x509Cert.PublicKey)
 	if err != nil {
 		client.Errorf("Failed verifing signing capability [%s].", err.Error())
-
-		return
-	}
-
-	// Marshall certificate and secret key to be stored in the database
-	if err != nil {
-		client.Errorf("Failed marshalling private key [%s].", err.Error())
-
-		return
-	}
-
-	if err = primitives.CheckCertPKAgainstSK(x509Cert, interface{}(tempSK)); err != nil {
-		client.Errorf("Failed checking TCA cert PK against private key [%s].", err.Error())
 
 		return
 	}
@@ -411,6 +312,13 @@ func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes []string,
 
 	TCertOwnerEncryptKey := primitives.HMACAESTruncated(client.tCertOwnerKDFKey, []byte{1})
 	ExpansionKey := primitives.HMAC(client.tCertOwnerKDFKey, []byte{2})
+
+	csp, err := bccsp.GetDefault()
+	if err != nil {
+		client.Errorf("Failed getting BCCSP: [%s].", err)
+
+		return err
+	}
 
 	j := 0
 	for i := 0; i < num; i++ {
@@ -466,72 +374,17 @@ func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes []string,
 		// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
 
 		// Compute temporary secret key
-		tempSK := &ecdsa.PrivateKey{
-			PublicKey: ecdsa.PublicKey{
-				Curve: client.enrollPrivKey.Curve,
-				X:     new(big.Int),
-				Y:     new(big.Int),
-			},
-			D: new(big.Int),
-		}
-
-		var k = new(big.Int).SetBytes(ExpansionValue)
-		var one = new(big.Int).SetInt64(1)
-		n := new(big.Int).Sub(client.enrollPrivKey.Params().N, one)
-		k.Mod(k, n)
-		k.Add(k, one)
-
-		tempSK.D.Add(client.enrollPrivKey.D, k)
-		tempSK.D.Mod(tempSK.D, client.enrollPrivKey.PublicKey.Params().N)
-
-		// Compute temporary public key
-		tempX, tempY := client.enrollPrivKey.PublicKey.ScalarBaseMult(k.Bytes())
-		tempSK.PublicKey.X, tempSK.PublicKey.Y =
-			tempSK.PublicKey.Add(
-				client.enrollPrivKey.PublicKey.X, client.enrollPrivKey.PublicKey.Y,
-				tempX, tempY,
-			)
-
-		// Verify temporary public key is a valid point on the reference curve
-		isOn := tempSK.Curve.IsOnCurve(tempSK.PublicKey.X, tempSK.PublicKey.Y)
-		if !isOn {
-			client.Error("Failed temporary public key IsOnCurve check.")
-
-			continue
-		}
-
-		// Check that the derived public key is the same as the one in the certificate
-		certPK := x509Cert.PublicKey.(*ecdsa.PublicKey)
-
-		if certPK.X.Cmp(tempSK.PublicKey.X) != 0 {
-			client.Error("Derived public key is different on X")
-
-			continue
-		}
-
-		if certPK.Y.Cmp(tempSK.PublicKey.Y) != 0 {
-			client.Error("Derived public key is different on Y")
+		tempSK, err := csp.DeriveKey(client.enrollPrivKey, &bccsp.ECDSAReRandKeyOpts{false, ExpansionValue})
+		if err != nil {
+			client.Errorf("Failed getting BCCSP: [%s].", err)
 
 			continue
 		}
 
 		// Verify the signing capability of tempSK
-		err = primitives.VerifySignCapability(tempSK, x509Cert.PublicKey)
+		err = client.verifySignCapability(tempSK, x509Cert.PublicKey)
 		if err != nil {
 			client.Errorf("Failed verifing signing capability [%s].", err.Error())
-
-			continue
-		}
-
-		// Marshall certificate and secret key to be stored in the database
-		if err != nil {
-			client.Errorf("Failed marshalling private key [%s].", err.Error())
-
-			continue
-		}
-
-		if err := primitives.CheckCertPKAgainstSK(x509Cert, interface{}(tempSK)); err != nil {
-			client.Errorf("Failed checking TCA cert PK against private key [%s].", err.Error())
 
 			continue
 		}

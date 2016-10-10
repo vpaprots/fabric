@@ -17,11 +17,11 @@ limitations under the License.
 package crypto
 
 import (
-	"crypto/ecdsa"
 	"crypto/x509"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/bccsp"
 )
 
 // Public Struct
@@ -51,7 +51,7 @@ type nodeImpl struct {
 	// Enrollment Certificate and private key
 	enrollID       string
 	enrollCert     *x509.Certificate
-	enrollPrivKey  *ecdsa.PrivateKey
+	enrollPrivKey  bccsp.Key
 	enrollCertHash []byte
 
 	// Enrollment Chain

@@ -208,6 +208,10 @@ func NewSelfSignedCert() ([]byte, interface{}, error) {
 
 // CheckCertPKAgainstSK checks certificate's publickey against the passed secret key
 func CheckCertPKAgainstSK(x509Cert *x509.Certificate, privateKey interface{}) error {
+	if x509Cert == nil {
+		return errors.New("Unknown public key type. Nil Cert.")
+	}
+
 	switch pub := x509Cert.PublicKey.(type) {
 	case *rsa.PublicKey:
 		priv, ok := privateKey.(*rsa.PrivateKey)
@@ -227,9 +231,8 @@ func CheckCertPKAgainstSK(x509Cert *x509.Certificate, privateKey interface{}) er
 			return errors.New("Private key does not match public key")
 		}
 	default:
-		return errors.New("Unknown public key algorithm")
+		return errors.New("Unknown public key type")
 	}
-
 	return nil
 }
 

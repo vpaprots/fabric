@@ -21,6 +21,7 @@ import (
 
 	"github.com/hyperledger/fabric/core/crypto/attributes"
 	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/hyperledger/fabric/core/crypto/bccsp"
 )
 
 type tCert interface {
@@ -43,7 +44,7 @@ type tCert interface {
 type tCertImpl struct {
 	client *clientImpl
 	cert   *x509.Certificate
-	sk     interface{}
+	sk     bccsp.Key
 	preK0  []byte
 }
 

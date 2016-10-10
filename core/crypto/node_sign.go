@@ -20,18 +20,54 @@ import (
 	"math/big"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
+	"github.com/hyperledger/fabric/core/crypto/bccsp"
+	"encoding/asn1"
+	"fmt"
+	"errors"
+	"crypto/ecdsa"
 )
 
 func (node *nodeImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {
-	return primitives.ECDSASign(signKey, msg)
+	switch signKey.(type) {
+	case bccsp.Key:
+		csp, err := bccsp.GetDefault()
+		if err != nil {
+			return nil, err
+		}
+
+		return csp.Sign(signKey.(bccsp.Key), primitives.Hash(msg), nil)
+	default:
+		return primitives.ECDSASign(signKey, msg)
+	}
 }
 
 func (node *nodeImpl) signWithEnrollmentKey(msg []byte) ([]byte, error) {
-	return primitives.ECDSASign(node.enrollPrivKey, msg)
+	csp, err := bccsp.GetDefault()
+	if err != nil {
+		return nil, err
+	}
+
+	return csp.Sign(node.enrollPrivKey, primitives.Hash(msg), nil)
 }
 
 func (node *nodeImpl) ecdsaSignWithEnrollmentKey(msg []byte) (*big.Int, *big.Int, error) {
-	return primitives.ECDSASignDirect(node.enrollPrivKey, msg)
+	csp, err := bccsp.GetDefault()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	signature, err := csp.Sign(node.enrollPrivKey, primitives.Hash(msg), nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Failed generititc signature [%s]", err)
+	}
+
+	ecdsaSignature := new(primitives.ECDSASignature)
+	_, err = asn1.Unmarshal(signature, ecdsaSignature)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Failed unmashalling signature [%s]", err)
+	}
+
+	return ecdsaSignature.R, ecdsaSignature.S, nil
 }
 
 func (node *nodeImpl) verify(verKey interface{}, msg, signature []byte) (bool, error) {
@@ -40,4 +76,50 @@ func (node *nodeImpl) verify(verKey interface{}, msg, signature []byte) (bool, e
 
 func (node *nodeImpl) verifyWithEnrollmentCert(msg, signature []byte) (bool, error) {
 	return primitives.ECDSAVerify(node.enrollCert.PublicKey, msg, signature)
+}
+
+func (node *nodeImpl) verifySignCapability(tempSK interface{}, certPK interface{}) error {
+	switch tempSK.(type) {
+	case bccsp.Key:
+		msg := []byte("This is a message to be signed and verified by ECDSA!")
+
+		csp, err := bccsp.GetDefault()
+		if err != nil {
+			return fmt.Errorf("Failed getting CSP [%s]", err)
+		}
+
+		sigma, err := csp.Sign(tempSK.(bccsp.Key), primitives.Hash(msg), nil)
+		if err != nil {
+			return fmt.Errorf("Failed generating signature [%s]", err)
+		}
+
+		ok, err := primitives.ECDSAVerify(certPK, msg, sigma)
+		if err != nil {
+			return fmt.Errorf("Failed verifycation [%s]", err)
+		}
+
+		if !ok {
+			return errors.New("Keys incompatible.")
+		}
+	case *ecdsa.PrivateKey:
+		msg := []byte("This is a message to be signed and verified by ECDSA!")
+
+		sigma, err := primitives.ECDSASign(tempSK, msg)
+		if err != nil {
+			return fmt.Errorf("Failed generating signature [%s]", err)
+		}
+
+		ok, err := primitives.ECDSAVerify(certPK, msg, sigma)
+		if err != nil {
+			return fmt.Errorf("Failed verifycation [%s]", err)
+		}
+
+		if !ok {
+			return errors.New("Keys incompatible.")
+		}
+	default:
+		return errors.New("Key type not recognized.")
+	}
+
+	return nil
 }

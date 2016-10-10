@@ -164,7 +164,7 @@ func (node *nodeImpl) getTLSCertificateFromTLSCA(id, affiliation string) (interf
 
 	tlsCert, err := primitives.DERToX509Certificate(pbCert.Cert.Cert)
 	certPK := tlsCert.PublicKey.(*ecdsa.PublicKey)
-	primitives.VerifySignCapability(priv, certPK)
+	node.verifySignCapability(priv, certPK)
 
 	node.Debug("Verifing tls certificate...done!")
 
