@@ -1,7 +1,6 @@
 package bccsp
 
 import (
-	"crypto/x509"
 	"io/ioutil"
 	"os"
 	"sync"
@@ -77,26 +76,6 @@ func (ks *defaultBCCSPKeyStore) storePrivateKey(alias string, privateKey interfa
 	}
 
 	return nil
-}
-
-func (ks *defaultBCCSPKeyStore) storePrivateKeyInClear(alias string, privateKey interface{}) error {
-	rawKey, err := primitives.PrivateKeyToPEM(privateKey, nil)
-	if err != nil {
-		defaultBCCSPLog.Errorf("Failed converting private key to PEM [%s]: [%s]", alias, err)
-		return err
-	}
-
-	err = ioutil.WriteFile(ks.conf.getPathForAlias(alias), rawKey, 0700)
-	if err != nil {
-		defaultBCCSPLog.Errorf("Failed storing private key [%s]: [%s]", alias, err)
-		return err
-	}
-
-	return nil
-}
-
-func (ks *defaultBCCSPKeyStore) deletePrivateKeyInClear(alias string) error {
-	return os.Remove(ks.conf.getPathForAlias(alias))
 }
 
 func (ks *defaultBCCSPKeyStore) loadPrivateKey(alias string) (interface{}, error) {
@@ -194,72 +173,6 @@ func (ks *defaultBCCSPKeyStore) loadKey(alias string) ([]byte, error) {
 	return key, nil
 }
 
-func (ks *defaultBCCSPKeyStore) storeCert(alias string, der []byte) error {
-	err := ioutil.WriteFile(ks.conf.getPathForAlias(alias), primitives.DERCertToPEM(der), 0700)
-	if err != nil {
-		defaultBCCSPLog.Errorf("Failed storing certificate [%s]: [%s]", alias, err)
-		return err
-	}
-
-	return nil
-}
-
-func (ks *defaultBCCSPKeyStore) certMissing(alias string) bool {
-	return !ks.isAliasSet(alias)
-}
-
-func (ks *defaultBCCSPKeyStore) deleteCert(alias string) error {
-	return os.Remove(ks.conf.getPathForAlias(alias))
-}
-
-func (ks *defaultBCCSPKeyStore) loadCert(alias string) ([]byte, error) {
-	path := ks.conf.getPathForAlias(alias)
-	defaultBCCSPLog.Debugf("Loading certificate [%s] at [%s]...", alias, path)
-
-	pem, err := ioutil.ReadFile(path)
-	if err != nil {
-		defaultBCCSPLog.Errorf("Failed loading certificate [%s]: [%s].", alias, err.Error())
-
-		return nil, err
-	}
-
-	return pem, nil
-}
-
-func (ks *defaultBCCSPKeyStore) loadExternalCert(path string) ([]byte, error) {
-	defaultBCCSPLog.Debugf("Loading external certificate at [%s]...", path)
-
-	pem, err := ioutil.ReadFile(path)
-	if err != nil {
-		defaultBCCSPLog.Errorf("Failed loading external certificate: [%s].", err.Error())
-
-		return nil, err
-	}
-
-	return pem, nil
-}
-
-func (ks *defaultBCCSPKeyStore) loadCertX509AndDer(alias string) (*x509.Certificate, []byte, error) {
-	path := ks.conf.getPathForAlias(alias)
-	defaultBCCSPLog.Debugf("Loading certificate [%s] at [%s]...", alias, path)
-
-	pem, err := ioutil.ReadFile(path)
-	if err != nil {
-		defaultBCCSPLog.Errorf("Failed loading certificate [%s]: [%s].", alias, err.Error())
-
-		return nil, nil, err
-	}
-
-	cert, der, err := primitives.PEMtoCertificateAndDER(pem)
-	if err != nil {
-		defaultBCCSPLog.Errorf("Failed parsing certificate [%s]: [%s].", alias, err.Error())
-
-		return nil, nil, err
-	}
-
-	return cert, der, nil
-}
-
 func (ks *defaultBCCSPKeyStore) close() error {
 	defaultBCCSPLog.Debug("Closing keystore...")
 	defaultBCCSPLog.Debug("Closing keystore...done!")
@@ -272,18 +185,12 @@ func (ks *defaultBCCSPKeyStore) createKeyStoreIfNotExists() error {
 	// Check keystore directory
 	ksPath := ks.conf.getKeyStorePath()
 	missing, err := utils.DirMissingOrEmpty(ksPath)
-	defaultBCCSPLog.Debugf("Keystore path [%s] missing [%t]: [%s]", ksPath, missing, utils.ErrToString(err))
-
-	if !missing {
-		// Check keystore file
-		missing, err = utils.FileMissing(ks.conf.getKeyStorePath(), ks.conf.getKeyStoreFilename())
-		defaultBCCSPLog.Debugf("Keystore [%s] missing [%t]:[%s]", ks.conf.getKeyStoreFilePath(), missing, utils.ErrToString(err))
-	}
+	defaultBCCSPLog.Infof("Keystore path [%s] missing [%t]: [%s]", ksPath, missing, utils.ErrToString(err))
 
 	if missing {
 		err := ks.createKeyStore()
 		if err != nil {
-			defaultBCCSPLog.Errorf("Failed creating db At [%s]: [%s]", ks.conf.getKeyStoreFilePath(), err.Error())
+			defaultBCCSPLog.Errorf("Failed creating ks At [%s]: [%s]", ksPath, err.Error())
 			return nil
 		}
 	}
@@ -296,16 +203,7 @@ func (ks *defaultBCCSPKeyStore) createKeyStore() error {
 	ksPath := ks.conf.getKeyStorePath()
 	defaultBCCSPLog.Debugf("Creating Keystore at [%s]...", ksPath)
 
-	missing, _ := utils.FileMissing(ksPath, ks.conf.getKeyStoreFilename())
-	if !missing {
-		defaultBCCSPLog.Debugf("Creating Keystore at [%s]. Keystore already there", ksPath)
-		return nil
-	}
-
 	os.MkdirAll(ksPath, 0755)
-
-	// Create Raw material folder
-	os.MkdirAll(ks.conf.getRawsPath(), 0755)
 
 	defaultBCCSPLog.Debugf("Keystore created at [%s].", ksPath)
 	return nil

@@ -10,7 +10,7 @@ import (
 
 func getDefaultBCCSP(t *testing.T) BCCSP {
 	primitives.InitSecurityLevel("SHA2", 256)
-	viper.Set("peer.fileSystemPath", os.TempDir())
+	viper.Set("security.bccsp.default.keyStorePath", os.TempDir())
 	csp, err := GetDefault()
 	if err != nil {
 		t.Fatalf("Failed getting Default CSP [%s]", err)
@@ -161,6 +161,29 @@ func TestEcdsaPublicKey_GetSKI(t *testing.T) {
 	}
 }
 
+func TestDefaultBCCSP_DeriveKey(t *testing.T) {
+	csp := getDefaultBCCSP(t)
+
+	k, err := csp.GenKey(&ECDSAGenKeyOpts{false})
+	if err != nil {
+		t.Fatalf("Failed generating ECDSA key [%s]", err)
+	}
+
+	reRandomizedKey, err := csp.DeriveKey(k, &ECDSAReRandKeyOpts{false, []byte{1}})
+	if err != nil {
+		t.Fatalf("Failed re-randomizing ECDSA key [%s]", err)
+	}
+	if k == nil {
+		t.Fatal("Failed re-randomizing ECDSA key. Re-randomized Key must be different from nil")
+	}
+	if !reRandomizedKey.Private() {
+		t.Fatal("Failed re-randomizing ECDSA key. Re-randomized Key should be private")
+	}
+	if reRandomizedKey.Symmetric() {
+		t.Fatal("Failed re-randomizing ECDSA key. Re-randomized Key should be asymmetric")
+	}
+}
+
 func TestDefaultBCCSP_Sign(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
@@ -194,6 +217,34 @@ func TestDefaultBCCSP_Verify(t *testing.T) {
 	}
 
 	valid, err := csp.Verify(k, signature, primitives.Hash(msg))
+	if err != nil {
+		t.Fatalf("Failed verifying ECDSA signature [%s]", err)
+	}
+	if !valid {
+		t.Fatal("Failed verifying ECDSA signature. Signature not valid.")
+	}
+}
+
+func TestDefaultBCCSP_DeriveKey2(t *testing.T) {
+	csp := getDefaultBCCSP(t)
+
+	k, err := csp.GenKey(&ECDSAGenKeyOpts{false})
+	if err != nil {
+		t.Fatalf("Failed generating ECDSA key [%s]", err)
+	}
+
+	reRandomizedKey, err := csp.DeriveKey(k, &ECDSAReRandKeyOpts{false, []byte{1}})
+	if err != nil {
+		t.Fatalf("Failed re-randomizing ECDSA key [%s]", err)
+	}
+
+	msg := []byte("Hello World")
+	signature, err := csp.Sign(reRandomizedKey, primitives.Hash(msg), nil)
+	if err != nil {
+		t.Fatalf("Failed generating ECDSA signature [%s]", err)
+	}
+
+	valid, err := csp.Verify(reRandomizedKey, signature, primitives.Hash(msg))
 	if err != nil {
 		t.Fatalf("Failed verifying ECDSA signature [%s]", err)
 	}
