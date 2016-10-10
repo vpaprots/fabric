@@ -5,49 +5,32 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/viper"
+	"os"
 )
 
 type defaultBCCSPConfiguration struct {
-	prefix string
-	name   string
-
-	logPrefix string
-
-	rootDataPath      string
-	configurationPath string
 	keystorePath      string
-	rawsPath          string
-	tCertsPath        string
 
 	configurationPathProperty string
-
 }
 
 func (conf *defaultBCCSPConfiguration) init() error {
-	conf.configurationPathProperty = "peer.fileSystemPath"
+	conf.configurationPathProperty = "security.bccsp.default.keyStorePath"
 
 	// Check mandatory fields
+	var rootPath string
 	if err := conf.checkProperty(conf.configurationPathProperty); err != nil {
-		return err
+		defaultBCCSPLog.Warning("'security.bccsp.default.keyStorePath' not set. Using temp folder.")
+		rootPath = os.TempDir()
+	} else {
+		rootPath = viper.GetString(conf.configurationPathProperty)
 	}
-
-	conf.configurationPath = viper.GetString(conf.configurationPathProperty)
-	conf.rootDataPath = conf.configurationPath
-
+	defaultBCCSPLog.Infof("Root Path [%s]", rootPath)
 	// Set configuration path
-	conf.configurationPath = filepath.Join(
-		conf.configurationPath,
-		"crypto", conf.prefix, conf.name,
-	)
+	rootPath = filepath.Join(rootPath, "crypto")
 
 	// Set ks path
-	conf.keystorePath = filepath.Join(conf.configurationPath, "ks")
-
-	// Set raws path
-	conf.rawsPath = filepath.Join(conf.keystorePath, "raw")
-
-	// Set tCerts path
-	conf.tCertsPath = filepath.Join(conf.keystorePath, "tcerts")
+	conf.keystorePath = filepath.Join(rootPath, "ks")
 
 	return nil
 }
@@ -60,33 +43,12 @@ func (conf *defaultBCCSPConfiguration) checkProperty(property string) error {
 	return nil
 }
 
-func (conf *defaultBCCSPConfiguration) getConfPath() string {
-	return conf.configurationPath
-}
-
 func (conf *defaultBCCSPConfiguration) getKeyStorePath() string {
 	return conf.keystorePath
 }
 
-func (conf *defaultBCCSPConfiguration) getRootDatastorePath() string {
-	return conf.rootDataPath
-}
-
-func (conf *defaultBCCSPConfiguration) getRawsPath() string {
-	return conf.rawsPath
-}
-
-func (conf *defaultBCCSPConfiguration) getKeyStoreFilename() string {
-	return "db"
-}
-
-func (conf *defaultBCCSPConfiguration) getKeyStoreFilePath() string {
-	return filepath.Join(conf.getKeyStorePath(), conf.getKeyStoreFilename())
-}
-
-
 func (conf *defaultBCCSPConfiguration) getPathForAlias(alias string) string {
-	return filepath.Join(conf.getRawsPath(), alias)
+	return filepath.Join(conf.getKeyStorePath(), alias)
 }
 
 
