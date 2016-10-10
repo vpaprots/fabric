@@ -3,13 +3,26 @@ package bccsp
 import (
 	"testing"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
+	"github.com/spf13/viper"
+	"os"
+	"bytes"
 )
 
-func TestDefaultBCCSP_GenKey(t *testing.T) {
+func getDefaultBCCSP(t *testing.T) BCCSP {
 	primitives.InitSecurityLevel("SHA2", 256)
-	csp := &DefaultBCCSP{}
+	viper.Set("peer.fileSystemPath", os.TempDir())
+	csp, err := GetDefault()
+	if err != nil {
+		t.Fatalf("Failed getting Default CSP [%s]", err)
+	}
 
-	k, err := csp.GenKey(&ECDSAGenKeyOpts{})
+	return csp
+}
+
+func TestDefaultBCCSP_GenKey(t *testing.T) {
+	csp := getDefaultBCCSP(t)
+
+	k, err := csp.GenKey(&ECDSAGenKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
@@ -24,11 +37,70 @@ func TestDefaultBCCSP_GenKey(t *testing.T) {
 	}
 }
 
-func TestEcdsaPrivateKey_PublicKey(t *testing.T) {
-	primitives.InitSecurityLevel("SHA2", 256)
-	csp := &DefaultBCCSP{}
+func TestEcdsaPrivateKey_GetSKI(t *testing.T) {
+	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&ECDSAGenKeyOpts{})
+	k, err := csp.GenKey(&ECDSAGenKeyOpts{true})
+	if err != nil {
+		t.Fatalf("Failed generating ECDSA key [%s]", err)
+	}
+
+	ski := k.GetSKI()
+	if len(ski) == 0 {
+		t.Fatal("SKI not valid. Zero length.")
+	}
+}
+
+func TestDefaultBCCSP_GenKey2(t *testing.T) {
+	csp := getDefaultBCCSP(t)
+
+	k, err := csp.GenKey(&ECDSAGenKeyOpts{false})
+	if err != nil {
+		t.Fatalf("Failed generating ECDSA key [%s]", err)
+	}
+	if k == nil {
+		t.Fatal("Failed generating ECDSA key. Key must be different from nil")
+	}
+	if !k.Private() {
+		t.Fatal("Failed generating ECDSA key. Key should be private")
+	}
+	if k.Symmetric() {
+		t.Fatal("Failed generating ECDSA key. Key should be asymmetric")
+	}
+}
+
+func TestDefaultBCCSP_GetKey(t *testing.T) {
+	csp := getDefaultBCCSP(t)
+
+	k, err := csp.GenKey(&ECDSAGenKeyOpts{false})
+	if err != nil {
+		t.Fatalf("Failed generating ECDSA key [%s]", err)
+	}
+
+	k2, err := csp.GetKey(k.GetSKI())
+	if err != nil {
+		t.Fatalf("Failed getting ECDSA key [%s]", err)
+	}
+	if k2 == nil {
+		t.Fatal("Failed getting ECDSA key. Key must be different from nil")
+	}
+	if !k2.Private() {
+		t.Fatal("Failed getting ECDSA key. Key should be private")
+	}
+	if k2.Symmetric() {
+		t.Fatal("Failed getting ECDSA key. Key should be asymmetric")
+	}
+
+	// Check that the SKIs are the same
+	if !bytes.Equal(k.GetSKI(), k2.GetSKI()) {
+		t.Fatalf("SKIs are different [%x]!=[%x]", k.GetSKI(), k2.GetSKI())
+	}
+}
+
+func TestEcdsaPrivateKey_PublicKey(t *testing.T) {
+	csp := getDefaultBCCSP(t)
+
+	k, err := csp.GenKey(&ECDSAGenKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
@@ -49,10 +121,9 @@ func TestEcdsaPrivateKey_PublicKey(t *testing.T) {
 }
 
 func TestEcdsaPublicKey_ToByte(t *testing.T) {
-	primitives.InitSecurityLevel("SHA2", 256)
-	csp := &DefaultBCCSP{}
+	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&ECDSAGenKeyOpts{})
+	k, err := csp.GenKey(&ECDSAGenKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
@@ -71,11 +142,29 @@ func TestEcdsaPublicKey_ToByte(t *testing.T) {
 	}
 }
 
-func TestDefaultBCCSP_Sign(t *testing.T) {
-	primitives.InitSecurityLevel("SHA2", 256)
-	csp := &DefaultBCCSP{}
+func TestEcdsaPublicKey_GetSKI(t *testing.T) {
+	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&ECDSAGenKeyOpts{})
+	k, err := csp.GenKey(&ECDSAGenKeyOpts{true})
+	if err != nil {
+		t.Fatalf("Failed generating ECDSA key [%s]", err)
+	}
+
+	pk, err := k.PublicKey()
+	if err != nil {
+		t.Fatalf("Failed getting public key from private ECDSA key [%s]", err)
+	}
+
+	ski := pk.GetSKI()
+	if len(ski) == 0 {
+		t.Fatal("SKI not valid. Zero length.")
+	}
+}
+
+func TestDefaultBCCSP_Sign(t *testing.T) {
+	csp := getDefaultBCCSP(t)
+
+	k, err := csp.GenKey(&ECDSAGenKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
@@ -91,10 +180,9 @@ func TestDefaultBCCSP_Sign(t *testing.T) {
 }
 
 func TestDefaultBCCSP_Verify(t *testing.T) {
-	primitives.InitSecurityLevel("SHA2", 256)
-	csp := &DefaultBCCSP{}
+	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&ECDSAGenKeyOpts{})
+	k, err := csp.GenKey(&ECDSAGenKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}

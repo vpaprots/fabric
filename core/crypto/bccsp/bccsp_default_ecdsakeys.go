@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"fmt"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 type ecdsaPrivateKey struct {
@@ -18,8 +19,11 @@ func (k *ecdsaPrivateKey) ToByte() (raw []byte, err error) {
 }
 
 // GetSKI returns the subject key identifier of this key.
-func (k *ecdsaPrivateKey) GetSKI() (ski []byte, err error) {
-	return
+func (k *ecdsaPrivateKey) GetSKI() (ski []byte) {
+	raw, _ := primitives.PrivateKeyToDER(k.k)
+	// TODO: Error should not be thrown. Anyway, move the marshalling at initialization.
+
+	return primitives.Hash(raw)
 }
 
 // Symmetric returns true if this key is a symmetric key,
@@ -58,8 +62,11 @@ func (k *ecdsaPublicKey) ToByte() (raw []byte, err error) {
 }
 
 // GetSKI returns the subject key identifier of this key.
-func (k *ecdsaPublicKey) GetSKI() (ski []byte, err error) {
-	return
+func (k *ecdsaPublicKey) GetSKI() (ski []byte) {
+	raw, _ := primitives.PublicKeyToPEM(k.k, nil)
+	// TODO: Error should not be thrown. Anyway, move the marshalling at initialization.
+
+	return primitives.Hash(raw)
 }
 
 // Symmetric returns true if this key is a symmetric key,

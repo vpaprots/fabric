@@ -8,7 +8,7 @@ type Key interface {
 	ToByte() ([]byte, error)
 
 	// GetSKI returns the subject key identifier of this key.
-	GetSKI() ([]byte, error)
+	GetSKI() []byte
 
 	// Symmetric returns true if this key is a symmetric key,
 	// false is this key is asymmetric

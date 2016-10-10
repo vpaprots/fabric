@@ -1,7 +1,7 @@
 package bccsp
 
 type ECDSAGenKeyOpts struct {
-	ephemeral bool
+	Temporary bool
 }
 
 // Algorithm returns an identifier for the algorithm to be used
@@ -13,5 +13,5 @@ func (opts *ECDSAGenKeyOpts) Algorithm() string {
 // Ephemeral returns true if the key to generate has to be ephemeral,
 // false otherwise.
 func (opts *ECDSAGenKeyOpts) Ephemeral() bool {
-	return opts.ephemeral
+	return opts.Temporary
 }
