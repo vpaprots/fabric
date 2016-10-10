@@ -17,8 +17,6 @@ limitations under the License.
 package crypto
 
 import (
-	"crypto/ecdsa"
-	"crypto/rand"
 	"crypto/x509"
 	"time"
 
@@ -34,6 +32,7 @@ import (
 	"github.com/hyperledger/fabric/core/crypto/primitives/ecies"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"github.com/hyperledger/fabric/core/crypto/bccsp"
 )
 
 var (
@@ -102,8 +101,8 @@ func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string) error {
 	}
 
 	// Store enrollment key
-	if err := node.ks.storePrivateKey(node.conf.getEnrollmentKeyFilename(), key); err != nil {
-		node.Errorf("Failed storing enrollment key [id=%s]: [%s]", enrollID, err)
+	if err := node.ks.storeSKI(node.conf.getEnrollmentKeyFilename(), key.GetSKI()); err != nil {
+		node.Errorf("Failed storing enrollment key SKI [id=%s]: [%s]", enrollID, err)
 		return err
 	}
 
@@ -154,14 +153,26 @@ func (node *nodeImpl) retrieveEnrollmentData(enrollID, enrollPWD string) error {
 func (node *nodeImpl) loadEnrollmentKey() error {
 	node.Debug("Loading enrollment key...")
 
-	enrollPrivKey, err := node.ks.loadPrivateKey(node.conf.getEnrollmentKeyFilename())
+	enrollPrivSKI, err := node.ks.loadSKI(node.conf.getEnrollmentKeyFilename())
 	if err != nil {
-		node.Errorf("Failed loading enrollment private key [%s].", err.Error())
+		node.Errorf("Failed loading enrollment private key SKI [%s].", err.Error())
 
 		return err
 	}
 
-	node.enrollPrivKey = enrollPrivKey.(*ecdsa.PrivateKey)
+	csp, err := bccsp.GetDefault()
+	if err != nil {
+		node.Errorf("Failed loading BCCSP [%s].", err.Error())
+
+		return err
+	}
+
+	node.enrollPrivKey, err = csp.GetKey(enrollPrivSKI)
+	if err != nil {
+		node.Errorf("Failed getting key from BCCSP [%x] [%s].", enrollPrivSKI, err.Error())
+
+		return err
+	}
 
 	return nil
 }
@@ -178,13 +189,14 @@ func (node *nodeImpl) loadEnrollmentCertificate() error {
 	node.enrollCert = cert
 
 	// TODO: move this to retrieve
-	pk := node.enrollCert.PublicKey.(*ecdsa.PublicKey)
-	err = primitives.VerifySignCapability(node.enrollPrivKey, pk)
-	if err != nil {
-		node.Errorf("Failed checking enrollment certificate against enrollment key [%s].", err.Error())
-
-		return err
-	}
+	//pk := node.enrollCert.PublicKey.(*ecdsa.PublicKey)
+	// TODO: make this compatible with the csp
+	//err = primitives.VerifySignCapability(node.enrollPrivKey, pk)
+	//if err != nil {
+	//	node.Errorf("Failed checking enrollment certificate against enrollment key [%s].", err.Error())
+	//
+	//	return err
+	//}
 
 	// Set node ID
 	node.id = primitives.Hash(der)
@@ -322,20 +334,34 @@ func (node *nodeImpl) callECAReadCertificateByHash(ctx context.Context, in *memb
 	return &membersrvc.CertPair{Sign: resp.Cert, Enc: nil}, nil
 }
 
-func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{}, []byte, []byte, error) {
+func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (bccsp.Key, []byte, []byte, error) {
 	// Get a new ECA Client
 	sock, ecaP, err := node.getECAClient()
 	defer sock.Close()
 
 	// Run the protocol
+	csp, err := bccsp.GetDefault()
+	if err != nil {
+		node.Errorf("Failed getting default BCCSP [%s]", err)
 
-	signPriv, err := primitives.NewECDSAKey()
+		return nil, nil, nil, err
+	}
+
+	signPriv, err := csp.GenKey(&bccsp.ECDSAGenKeyOpts{Temporary: false})
 	if err != nil {
 		node.Errorf("Failed generating ECDSA key [%s].", err.Error())
 
 		return nil, nil, nil, err
 	}
-	signPub, err := x509.MarshalPKIXPublicKey(&signPriv.PublicKey)
+
+	signPubKey, err := signPriv.PublicKey()
+	if err != nil {
+		node.Errorf("Failed getting ECDSA public key from corresponding private key [%s].", err.Error())
+
+		return nil, nil, nil, err
+	}
+
+	signPubKeyRaw, err := signPubKey.ToByte()
 	if err != nil {
 		node.Errorf("Failed mashalling ECDSA key [%s].", err.Error())
 
@@ -359,7 +385,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 		Ts:   &timestamp.Timestamp{Seconds: time.Now().Unix(), Nanos: 0},
 		Id:   &membersrvc.Identity{Id: id},
 		Tok:  &membersrvc.Token{Tok: []byte(pw)},
-		Sign: &membersrvc.PublicKey{Type: membersrvc.CryptoType_ECDSA, Key: signPub},
+		Sign: &membersrvc.PublicKey{Type: membersrvc.CryptoType_ECDSA, Key: signPubKeyRaw},
 		Enc:  &membersrvc.PublicKey{Type: membersrvc.CryptoType_ECDSA, Key: encPub},
 		Sig:  nil}
 
@@ -403,14 +429,22 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 	raw, _ := proto.Marshal(req)
 	hash.Write(raw)
 
-	r, s, err := ecdsa.Sign(rand.Reader, signPriv, hash.Sum(nil))
+	signature, err := csp.Sign(signPriv, hash.Sum(nil), nil)
 	if err != nil {
 		node.Errorf("Failed signing [%s].", err.Error())
 
 		return nil, nil, nil, err
 	}
-	R, _ := r.MarshalText()
-	S, _ := s.MarshalText()
+
+	// Unmarshall the signature to get R and S
+	ecdsaSignature := new(primitives.ECDSASignature)
+	_, err = asn1.Unmarshal(signature, ecdsaSignature)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	R, _ := ecdsaSignature.R.MarshalText()
+	S, _ := ecdsaSignature.S.MarshalText()
 	req.Sig = &membersrvc.Signature{Type: membersrvc.CryptoType_ECDSA, R: R, S: S}
 
 	resp, err = ecaP.CreateCertificatePair(context.Background(), req)
@@ -439,7 +473,14 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (interface{
 		return nil, nil, nil, err
 	}
 
-	err = primitives.CheckCertAgainstSKAndRoot(x509SignCert, signPriv, node.ecaCertPool)
+	err = node.verifySignCapability(signPriv, x509SignCert.PublicKey)
+	if err != nil {
+		node.Errorf("Failed checking signing enrollment certificate for signing: [%s]", err)
+
+		return nil, nil, nil, err
+	}
+
+	_, err = primitives.CheckCertAgainRoot(x509SignCert, node.ecaCertPool)
 	if err != nil {
 		node.Errorf("Failed checking signing enrollment certificate for signing: [%s]", err)
 

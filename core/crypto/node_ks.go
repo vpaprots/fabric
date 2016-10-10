@@ -133,6 +133,30 @@ func (ks *keyStore) storePrivateKey(alias string, privateKey interface{}) error 
 	return nil
 }
 
+func (ks *keyStore) storeSKI(alias string, ski []byte) error {
+	err := ioutil.WriteFile(ks.node.conf.getPathForAlias(alias), ski, 0700)
+	if err != nil {
+		ks.node.Errorf("Failed storing key [%s]: [%s]", alias, err)
+		return err
+	}
+
+	return nil
+}
+
+func (ks *keyStore) loadSKI(alias string) ([]byte, error) {
+	path := ks.node.conf.getPathForAlias(alias)
+	ks.node.Debugf("Loading key [%s] at [%s]...", alias, path)
+
+	ski, err := ioutil.ReadFile(path)
+	if err != nil {
+		ks.node.Errorf("Failed loading key [%s]: [%s].", alias, err.Error())
+
+		return nil, err
+	}
+
+	return ski, nil
+}
+
 func (ks *keyStore) storePrivateKeyInClear(alias string, privateKey interface{}) error {
 	rawKey, err := primitives.PrivateKeyToPEM(privateKey, nil)
 	if err != nil {
