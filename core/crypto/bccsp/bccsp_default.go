@@ -7,10 +7,19 @@ import (
 	"crypto/rand"
 	"crypto/ecdsa"
 	"encoding/asn1"
+	"github.com/op/go-logging"
+	"encoding/hex"
 )
 
-type DefaultBCCSP struct {
+var (
+	defaultBCCSPLog = logging.MustGetLogger("bccsp_default_ks")
+)
 
+
+
+
+type DefaultBCCSP struct {
+	ks *defaultBCCSPKeyStore
 }
 
 // GenKey generates a key using opts.
@@ -25,10 +34,21 @@ func (csp *DefaultBCCSP) GenKey(opts GenKeyOpts) (k Key, err error) {
 	case "ECDSA":
 		lowLevelKey, err := primitives.NewECDSAKey()
 		if err != nil {
-			return nil, fmt.Errorf("Failged generating ECDSA key [%s]", err)
+			return nil, fmt.Errorf("Failed generating ECDSA key [%s]", err)
 		}
 
-		return &ecdsaPrivateKey{lowLevelKey}, nil
+		k = &ecdsaPrivateKey{lowLevelKey}
+
+		// If the key is not Ephemeral, store it.
+		if !opts.Ephemeral() {
+			// Store the key
+			err = csp.ks.storePrivateKey(hex.EncodeToString(k.GetSKI()), lowLevelKey)
+			if err != nil {
+				return nil, fmt.Errorf("Failed storing ECDSA key [%s]", err)
+			}
+		}
+
+		return k, nil
 	default:
 		return nil, fmt.Errorf("Algorithm not recognized [%s]", opts.Algorithm())
 	}
@@ -44,7 +64,23 @@ func (csp *DefaultBCCSP) DeriveKey(k Key, opts DeriveKeyOpts) (dk Key, err error
 // GetKey returns the key this CSP associates to
 // the Subject Key Identifier ski.
 func (csp *DefaultBCCSP) GetKey(ski []byte) (k Key, err error) {
-	return nil, errors.New("Not imeplemtend yet")
+	// Validate arguments
+	if len(ski) == 0 {
+		return nil, errors.New("Invalid ski. Zero length.")
+	}
+
+	// Load the key
+	key, err := csp.ks.loadPrivateKey(hex.EncodeToString(ski))
+	if err != nil {
+		return nil, fmt.Errorf("Failed loading key [%x] [%s]", ski, err)
+	}
+
+	switch key.(type) {
+	case *ecdsa.PrivateKey:
+		return &ecdsaPrivateKey{key.(*ecdsa.PrivateKey)}, nil
+	default:
+		return nil, errors.New("Key type not recognized")
+	}
 }
 
 // ImportKey imports a key from its raw representation using opts.
