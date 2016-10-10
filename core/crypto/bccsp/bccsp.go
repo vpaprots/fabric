@@ -9,6 +9,19 @@ type Key interface {
 
 	// GetSKI returns the subject key identifier of this key.
 	GetSKI() ([]byte, error)
+
+	// Symmetric returns true if this key is a symmetric key,
+	// false is this key is asymmetric
+	Symmetric() (bool)
+
+	// Private returns true if this key is an asymmetric private key,
+	// false otherwise.
+	Private() (bool)
+
+	// PublicKey returns the corresponding public key if this key
+	// is an asymmetric private key. If this key is already public,
+	// PublicKey returns this key itself.
+	PublicKey() (Key, error)
 }
 
 // GenKeyOpts contains options for key-generation with a CSP.
