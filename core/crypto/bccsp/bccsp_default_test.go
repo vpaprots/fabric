@@ -396,5 +396,97 @@ func TestDefaultBCCSP_DeriveKey4(t *testing.T) {
 	if len(raw) == 0 {
 		t.Fatal("Failed marshalling to bytes. 0 bytes")
 	}
+}
+
+func TestDefaultBCCSP_ImportKey(t *testing.T) {
+	csp := getDefaultBCCSP(t)
+
+	raw, err := primitives.GenAESKey()
+	if err != nil {
+		t.Fatalf("Failed generating AES key [%s]", err)
+	}
+
+	k, err := csp.ImportKey(raw, &AES256ImportKeyOpts{true})
+	if err != nil {
+		t.Fatalf("Failed importing AES_256 key [%s]", err)
+	}
+	if k == nil {
+		t.Fatal("Failed importing AES_256 key. Imported Key must be different from nil")
+	}
+	if !k.Private() {
+		t.Fatal("Failed HMACing AES_256 key. Imported Key should be private")
+	}
+	if !k.Symmetric() {
+		t.Fatal("Failed HMACing AES_256 key. Imported Key should be asymmetric")
+	}
+	raw, err = k.ToByte()
+	if err == nil {
+		t.Fatal("Failed marshalling to bytes. Marshalling must fail.")
+	}
+	if len(raw) != 0 {
+		t.Fatal("Failed marshalling to bytes. Output should be 0 bytes")
+	}
+
+	msg := []byte("Hello World")
+
+	ct, err := csp.Encrypt(k, msg, &AESCBCPKCS7ModeOpts{})
+	if err != nil {
+		t.Fatalf("Failed encrypting [%s]", err)
+	}
+
+	pt, err := csp.Decrypt(k, ct, AESCBCPKCS7ModeOpts{})
+	if err != nil {
+		t.Fatalf("Failed decrypting [%s]", err)
+	}
+	if len(ct) == 0 {
+		t.Fatal("Failed decrypting. Nil plaintext")
+	}
+
+	if !bytes.Equal(msg, pt) {
+		t.Fatalf("Failed decrypting. Decrypted plaintext is different from the original. [%x][%x]", msg, pt)
+	}
+
+}
+
+func TestDefaultBCCSP_ImportKey2(t *testing.T) {
+	csp := getDefaultBCCSP(t)
+
+	_, err := csp.ImportKey(nil, &AES256ImportKeyOpts{true})
+	if err == nil {
+		t.Fatal("Failed importing key. Must fail on importing nil key")
+	}
+
+	_, err = csp.ImportKey([]byte{1}, &AES256ImportKeyOpts{true})
+	if err == nil {
+		t.Fatal("Failed importing key. Must fail on importing a key with an invalid length")
+	}
+}
+
+func TestDefaultBCCSP_GetKey2(t *testing.T) {
+	csp := getDefaultBCCSP(t)
+
+	k, err := csp.GenKey(&AES256GenKeyOpts{false})
+	if err != nil {
+		t.Fatalf("Failed generating AES_256 key [%s]", err)
+	}
+
+	k2, err := csp.GetKey(k.GetSKI())
+	if err != nil {
+		t.Fatalf("Failed getting AES_256 key [%s]", err)
+	}
+	if k2 == nil {
+		t.Fatal("Failed getting AES_256 key. Key must be different from nil")
+	}
+	if !k2.Private() {
+		t.Fatal("Failed getting AES_256 key. Key should be private")
+	}
+	if !k2.Symmetric() {
+		t.Fatal("Failed getting AES_256 key. Key should be symmetric")
+	}
+
+	// Check that the SKIs are the same
+	if !bytes.Equal(k.GetSKI(), k2.GetSKI()) {
+		t.Fatalf("SKIs are different [%x]!=[%x]", k.GetSKI(), k2.GetSKI())
+	}
 
 }

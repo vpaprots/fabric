@@ -54,9 +54,7 @@ func (opts *AES256GenKeyOpts) Ephemeral() bool {
 	return opts.Temporary
 }
 
-type AESCBCPKCS7ModeOpts struct {
-
-}
+type AESCBCPKCS7ModeOpts struct {}
 
 type HMACTruncated256AESDeriveKeyOpts struct {
 	Temporary bool
@@ -100,4 +98,36 @@ func (opts *HMACDeriveKeyOpts) Ephemeral() bool {
 // Argument returns the argument to be passed to the HMAC
 func (opts *HMACDeriveKeyOpts) Argument() []byte {
 	return opts.Arg
+}
+
+type AES256ImportKeyOpts struct {
+	Temporary bool
+}
+
+// Algorithm returns an identifier for the algorithm to be used
+// to import the raw material of a key.
+func (opts *AES256ImportKeyOpts) Algorithm() string {
+	return "AES_256"
+}
+
+// Ephemeral returns true if the key generated has to be ephemeral,
+// false otherwise.
+func (opts *AES256ImportKeyOpts) Ephemeral() bool {
+	return opts.Temporary
+}
+
+type HMACImportKeyOpts struct {
+	Temporary bool
+}
+
+// Algorithm returns an identifier for the algorithm to be used
+// to import the raw material of a key.
+func (opts *HMACImportKeyOpts) Algorithm() string {
+	return "HMAC_IMPORT_KEY"
+}
+
+// Ephemeral returns true if the key generated has to be ephemeral,
+// false otherwise.
+func (opts *HMACImportKeyOpts) Ephemeral() bool {
+	return opts.Temporary
 }

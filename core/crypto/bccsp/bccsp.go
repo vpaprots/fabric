@@ -48,8 +48,16 @@ type DeriveKeyOpts interface {
 	Ephemeral() bool
 }
 
-// ImportKeyOpts contains options for importing a key with a CSP.
-type ImportKeyOpts interface{}
+// ImportKeyOpts contains options for importing the raw material of a key with a CSP.
+type ImportKeyOpts interface{
+	// Algorithm returns an identifier for the algorithm to be used
+	// to import the raw material of a key.
+	Algorithm() string
+
+	// Ephemeral returns true if the key generated has to be ephemeral,
+	// false otherwise.
+	Ephemeral() bool
+}
 
 // SignerOpts contains options for signing with a CSP.
 type SignerOpts interface{}
