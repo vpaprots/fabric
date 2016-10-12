@@ -147,7 +147,7 @@ func (tCertPool *tCertPoolSingleThreadImpl) getNextTCert(attributes ...string) (
 	if poolLen <= 0 {
 		// Reload
 		if err := tCertPool.client.getTCertsFromTCA(attributesHash, attributes, tCertPool.client.conf.getTCertBatchSize()); err != nil {
-			return nil, fmt.Errorf("Failed loading TCerts from TCA")
+			return nil, fmt.Errorf("Failed loading TCerts from TCA [%s]", err)
 		}
 	}
 
