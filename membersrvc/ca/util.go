@@ -22,6 +22,11 @@ import (
 	"time"
 
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
+	"github.com/hyperledger/fabric/core/crypto/bccsp"
+	"fmt"
+	"encoding/asn1"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
+	"math/big"
 )
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -64,4 +69,26 @@ func MemberRoleToString(role pb.Role) (string, error) {
 	}
 
 	return roleStr, nil
+}
+
+
+func ECDSASignDirect(key bccsp.Key, msg []byte) (*big.Int, *big.Int, error) {
+	csp, err := bccsp.GetDefault()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	signature, err := csp.Sign(key, primitives.Hash(msg), nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Failed generititc signature [%s]", err)
+	}
+
+	ecdsaSignature := new(primitives.ECDSASignature)
+	_, err = asn1.Unmarshal(signature, ecdsaSignature)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Failed unmashalling signature [%s]", err)
+	}
+
+	return ecdsaSignature.R, ecdsaSignature.S, nil
+
 }

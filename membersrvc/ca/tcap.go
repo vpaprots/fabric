@@ -125,7 +125,7 @@ func (tcap *TCAP) requestAttributes(id string, ecert []byte, attrs []*pb.TCertAt
 
 	var r, s *big.Int
 
-	r, s, err = primitives.ECDSASignDirect(tcap.tca.priv, rawReq)
+	r, s, err = ECDSASignDirect(tcap.tca.priv, rawReq)
 
 	if err != nil {
 		return nil, err

@@ -17,7 +17,6 @@ limitations under the License.
 package ca
 
 import (
-	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -43,6 +42,8 @@ import (
 	_ "github.com/mattn/go-sqlite3" // This blank import is required to load sqlite3 driver
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
+	"github.com/hyperledger/fabric/core/crypto/bccsp"
+	"crypto"
 )
 
 var caLogger = logging.MustGetLogger("ca")
@@ -53,7 +54,8 @@ type CA struct {
 
 	path string
 
-	priv *ecdsa.PrivateKey
+	priv bccsp.Key
+	privSigner crypto.Signer
 	cert *x509.Certificate
 	raw  []byte
 }
@@ -260,10 +262,28 @@ func NewCA(name string, initTables TableInitializer) *CA {
 	}
 	ca.priv = priv
 
+	// Create the crypto signer
+	csp, err := bccsp.GetDefault()
+	if err != nil {
+		caLogger.Panic((err))
+	}
+
+	privSigner := &bccsp.CryptoSigner{}
+	if err := privSigner.Init(csp, ca.priv); err != nil {
+		caLogger.Panic(err)
+	}
+
+	ca.privSigner = privSigner
+
 	// read CA certificate, or create a self-signed CA certificate
 	raw, err := ca.readCACertificate(name)
 	if err != nil {
-		raw = ca.createCACertificate(name, &ca.priv.PublicKey)
+		pub, err := ca.priv.PublicKey()
+		if err != nil {
+			caLogger.Panic(err)
+		}
+
+		raw = ca.createCACertificate(name, pub)
 	}
 	cert, err := x509.ParseCertificate(raw)
 	if err != nil {
@@ -287,58 +307,58 @@ func (ca *CA) Stop() error {
 	return err
 }
 
-func (ca *CA) createCAKeyPair(name string) *ecdsa.PrivateKey {
+func (ca *CA) createCAKeyPair(name string) bccsp.Key {
 	caLogger.Debug("Creating CA key pair.")
 
-	curve := primitives.GetDefaultCurve()
 
-	priv, err := ecdsa.GenerateKey(curve, rand.Reader)
-	if err == nil {
-		raw, _ := x509.MarshalECPrivateKey(priv)
-		cooked := pem.EncodeToMemory(
-			&pem.Block{
-				Type:  "ECDSA PRIVATE KEY",
-				Bytes: raw,
-			})
-		err = ioutil.WriteFile(ca.path+"/"+name+".priv", cooked, 0644)
-		if err != nil {
-			caLogger.Panic(err)
-		}
-
-		raw, _ = x509.MarshalPKIXPublicKey(&priv.PublicKey)
-		cooked = pem.EncodeToMemory(
-			&pem.Block{
-				Type:  "ECDSA PUBLIC KEY",
-				Bytes: raw,
-			})
-		err = ioutil.WriteFile(ca.path+"/"+name+".pub", cooked, 0644)
-		if err != nil {
-			caLogger.Panic(err)
-		}
+	csp, err := bccsp.GetDefault()
+	if err != nil {
+		caLogger.Panicf("Failed getting BCCSP [%s]", err)
 	}
+
+	key, err := csp.GenKey(&bccsp.ECDSAGenKeyOpts{false})
+	if err != nil {
+		caLogger.Panicf("Failed generating CA key [%s]", err)
+	}
+
+	err = ioutil.WriteFile(ca.path+"/"+name+".ski", key.GetSKI(), 0644)
 	if err != nil {
 		caLogger.Panic(err)
 	}
 
-	return priv
+	return key
 }
 
-func (ca *CA) readCAPrivateKey(name string) (*ecdsa.PrivateKey, error) {
+func (ca *CA) readCAPrivateKey(name string) (bccsp.Key, error) {
 	caLogger.Debug("Reading CA private key.")
 
-	cooked, err := ioutil.ReadFile(ca.path + "/" + name + ".priv")
+	ski, err := ioutil.ReadFile(ca.path + "/" + name + ".ski")
 	if err != nil {
 		return nil, err
 	}
 
-	block, _ := pem.Decode(cooked)
-	return x509.ParseECPrivateKey(block.Bytes)
+	csp, err := bccsp.GetDefault()
+	if err != nil {
+		return nil, fmt.Errorf("Failed getting BCCSp [%s]", err)
+	}
+
+	return csp.GetKey(ski)
 }
 
-func (ca *CA) createCACertificate(name string, pub *ecdsa.PublicKey) []byte {
+func (ca *CA) createCACertificate(name string, pub bccsp.Key) []byte {
 	caLogger.Debug("Creating CA certificate.")
 
-	raw, err := ca.newCertificate(name, pub, x509.KeyUsageDigitalSignature|x509.KeyUsageCertSign, nil)
+	raw, err := pub.ToByte()
+	if err != nil {
+		caLogger.Panic("Failed marshalling public key")
+	}
+
+	pubK, err := primitives.DERToPublicKey(raw)
+	if err != nil {
+		caLogger.Panic("Failed unmarshalling public key")
+	}
+
+	raw, err = ca.newCertificate(name, pubK, x509.KeyUsageDigitalSignature|x509.KeyUsageCertSign, nil)
 	if err != nil {
 		caLogger.Panic(err)
 	}
@@ -446,7 +466,7 @@ func (ca *CA) newCertificateFromSpec(spec *CertificateSpec) ([]byte, error) {
 		&tmpl,
 		parent,
 		spec.GetPublicKey(),
-		ca.priv,
+		ca.privSigner,
 	)
 	if isCA && err != nil {
 		caLogger.Panic(err)

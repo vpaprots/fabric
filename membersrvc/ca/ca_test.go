@@ -34,7 +34,7 @@ const (
 
 var (
 	ca      *CA
-	caFiles = [4]string{name + ".cert", name + ".db", name + ".priv", name + ".pub"}
+	caFiles = [4]string{name + ".cert", name + ".db", name + ".ski"}
 )
 
 func TestNewCA(t *testing.T) {

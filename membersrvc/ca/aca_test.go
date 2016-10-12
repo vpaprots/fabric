@@ -180,7 +180,7 @@ func fetchAttributes() (*pb.ACAFetchAttrResp, error) {
 
 	var r, s *big.Int
 
-	r, s, err = primitives.ECDSASignDirect(eca.priv, rawReq)
+	r, s, err = ECDSASignDirect(eca.priv, rawReq)
 
 	if err != nil {
 		return nil, err
@@ -259,7 +259,7 @@ func TestRequestAttributes(t *testing.T) {
 
 	var r, s *big.Int
 
-	r, s, err = primitives.ECDSASignDirect(tca.priv, rawReq)
+	r, s, err = ECDSASignDirect(tca.priv, rawReq)
 
 	if err != nil {
 		t.Fatalf("Error executing test: %v", err)
@@ -334,7 +334,7 @@ func TestRequestAttributes_AttributesMismatch(t *testing.T) {
 
 	var r, s *big.Int
 
-	r, s, err = primitives.ECDSASignDirect(tca.priv, rawReq)
+	r, s, err = ECDSASignDirect(tca.priv, rawReq)
 
 	if err != nil {
 		t.Fatalf("Error executing test: %v", err)
@@ -429,7 +429,7 @@ func TestRequestAttributes_DuplicatedAttributes(t *testing.T) {
 
 	var r, s *big.Int
 
-	r, s, err = primitives.ECDSASignDirect(tca.priv, rawReq)
+	r, s, err = ECDSASignDirect(tca.priv, rawReq)
 
 	if err != nil {
 		t.Fatalf("Error executing test: %v", err)
@@ -483,7 +483,7 @@ func TestRequestAttributes_FullAttributes(t *testing.T) {
 
 	var r, s *big.Int
 
-	r, s, err = primitives.ECDSASignDirect(tca.priv, rawReq)
+	r, s, err = ECDSASignDirect(tca.priv, rawReq)
 
 	if err != nil {
 		t.Fatalf("Error executing test: %v", err)
@@ -563,7 +563,7 @@ func TestRequestAttributes_PartialAttributes(t *testing.T) {
 
 	var r, s *big.Int
 
-	r, s, err = primitives.ECDSASignDirect(tca.priv, rawReq)
+	r, s, err = ECDSASignDirect(tca.priv, rawReq)
 
 	if err != nil {
 		t.Fatalf("Error executing test: %v", err)
