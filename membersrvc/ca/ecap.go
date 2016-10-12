@@ -76,7 +76,7 @@ func (ecap *ECAP) fetchAttributes(cert *pb.Cert) error {
 
 	var r, s *big.Int
 
-	r, s, err = primitives.ECDSASignDirect(ecap.eca.priv, rawReq)
+	r, s, err = ECDSASignDirect(ecap.eca.priv, rawReq)
 
 	if err != nil {
 		return err

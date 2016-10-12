@@ -44,7 +44,7 @@ type User struct {
 }
 
 var (
-	ecaFiles    = [6]string{"eca.cert", "eca.db", "eca.priv", "eca.pub", "obc.aes", "obc.ecies"}
+	ecaFiles    = [6]string{"eca.cert", "eca.db", "eca.ski", "obc.aes", "obc.ecies"}
 	testAdmin   = User{enrollID: "admin", enrollPwd: []byte("Xurw3yU9zI0l")}
 	testUser    = User{enrollID: "testUser", role: 1, affiliation: "institution_a"}
 	testUser2   = User{enrollID: "testUser2", role: 1, affiliation: "institution_a"}

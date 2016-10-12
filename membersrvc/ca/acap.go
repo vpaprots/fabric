@@ -95,7 +95,7 @@ func (acap *ACAP) createRequestAttributeResponse(status pb.ACAAttrResp_StatusCod
 		return &pb.ACAAttrResp{Status: pb.ACAAttrResp_FAILURE, Cert: nil, Signature: nil}
 	}
 
-	r, s, err := primitives.ECDSASignDirect(acap.aca.priv, rawReq)
+	r, s, err := ECDSASignDirect(acap.aca.priv, rawReq)
 	if err != nil {
 		return &pb.ACAAttrResp{Status: pb.ACAAttrResp_FAILURE, Cert: nil, Signature: nil}
 	}
