@@ -19,7 +19,6 @@ package crypto
 import (
 	membersrvc "github.com/hyperledger/fabric/membersrvc/protos"
 
-	"bytes"
 	"crypto/hmac"
 
 	"errors"
@@ -64,7 +63,7 @@ func (client *clientImpl) initTCertEngine() (err error) {
 }
 
 func (client *clientImpl) storeTCertOwnerKDFKey() error {
-	if err := client.ks.storeKey(client.conf.getTCertOwnerKDFKeyFilename(), client.tCertOwnerKDFKey); err != nil {
+	if err := client.ks.storeSKI(client.conf.getTCertOwnerKDFKeyFilename(), client.tCertOwnerKDFKey.GetSKI()); err != nil {
 		client.Errorf("Failed storing TCertOwnerKDFKey [%s].", err.Error())
 
 		return err
@@ -82,13 +81,26 @@ func (client *clientImpl) loadTCertOwnerKDFKey() error {
 		return nil
 	}
 
-	tCertOwnerKDFKey, err := client.ks.loadKey(client.conf.getTCertOwnerKDFKeyFilename())
+	ski, err := client.ks.loadSKI(client.conf.getTCertOwnerKDFKeyFilename())
 	if err != nil {
-		client.Errorf("Failed parsing TCertOwnerKDFKey [%s].", err.Error())
+		client.Errorf("Failed parsing TCertOwnerKDFKey SKI [%s].", err.Error())
 
 		return err
 	}
-	client.tCertOwnerKDFKey = tCertOwnerKDFKey
+
+	csp, err := bccsp.GetDefault()
+	if err != nil {
+		client.Errorf("Failed getting BCCSP: [%s].", err)
+
+		return err
+	}
+
+	client.tCertOwnerKDFKey, err = csp.GetKey(ski)
+	if err != nil {
+		client.Errorf("Failed getting KDFKey for SKI: [%s].", err)
+
+		return err
+	}
 
 	client.Debug("Loading TCertOwnerKDFKey...done!")
 
@@ -144,9 +156,30 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 	// Let TCertIndex = Timestamp, RandValue, 1,2,…
 	// Timestamp assigned, RandValue assigned and counter reinitialized to 1 per batch
 	// Decrypt ct to TCertIndex (TODO: || EnrollPub_Key || EnrollID ?)
-	TCertOwnerEncryptKey := primitives.HMACAESTruncated(client.tCertOwnerKDFKey, []byte{1})
-	ExpansionKey := primitives.HMAC(client.tCertOwnerKDFKey, []byte{2})
-	pt, err := primitives.CBCPKCS7Decrypt(TCertOwnerEncryptKey, tCertIndexCT)
+
+	csp, err := bccsp.GetDefault()
+	if err != nil {
+		client.Errorf("Failed getting BCCSP: [%s].", err)
+
+		return nil, err
+	}
+
+	TCertOwnerEncryptKey, err := csp.DeriveKey(client.tCertOwnerKDFKey, &bccsp.HMACTruncated256AESDeriveKeyOpts{Temporary: true, Arg: []byte{1}})
+	if err != nil {
+		return nil, fmt.Errorf("Failed deriving TCertOwnerEncryptKey [%s]", err)
+	}
+	ExpansionKeyCSP, err := csp.DeriveKey(client.tCertOwnerKDFKey, &bccsp.HMACDeriveKeyOpts{Temporary: true, Arg: []byte{2}})
+	if err != nil {
+		return nil, fmt.Errorf("Failed deriving ExpansionKey [%s]", err)
+	}
+	ExpansionKey, err := ExpansionKeyCSP.ToByte()
+	if err != nil {
+		return nil, fmt.Errorf("Failed marshalling ExpansionKey [%s]", err)
+	}
+
+	//TCertOwnerEncryptKey := primitives.HMACAESTruncated(client.tCertOwnerKDFKey, []byte{1})
+	//ExpansionKey := primitives.HMAC(client.tCertOwnerKDFKey, []byte{2})
+	pt, err := csp.Decrypt(TCertOwnerEncryptKey, tCertIndexCT, &bccsp.AESCBCPKCS7ModeOpts{})
 
 	if err == nil {
 		// Compute ExpansionValue based on TCertIndex
@@ -197,8 +230,27 @@ func (client *clientImpl) getTCertFromDER(certBlk *TCertDBBlock) (certBlock *TCe
 		return nil, fmt.Errorf("KDF key not initialized yet")
 	}
 
-	TCertOwnerEncryptKey := primitives.HMACAESTruncated(client.tCertOwnerKDFKey, []byte{1})
-	ExpansionKey := primitives.HMAC(client.tCertOwnerKDFKey, []byte{2})
+	csp, err := bccsp.GetDefault()
+	if err != nil {
+		client.Errorf("Failed getting BCCSP: [%s].", err)
+
+		return nil, err
+	}
+	TCertOwnerEncryptKey, err := csp.DeriveKey(client.tCertOwnerKDFKey, &bccsp.HMACTruncated256AESDeriveKeyOpts{Temporary: true, Arg: []byte{1}})
+	if err != nil {
+		return nil, fmt.Errorf("Failed deriving TCertOwnerEncryptKey [%s]", err)
+	}
+	ExpansionKeyCSP, err := csp.DeriveKey(client.tCertOwnerKDFKey, &bccsp.HMACDeriveKeyOpts{Temporary: true, Arg: []byte{2}})
+	if err != nil {
+		return nil, fmt.Errorf("Failed deriving ExpansionKey [%s]", err)
+	}
+	ExpansionKey, err := ExpansionKeyCSP.ToByte()
+	if err != nil {
+		return nil, fmt.Errorf("Failed marshalling ExpansionKey [%s]", err)
+	}
+
+	//TCertOwnerEncryptKey := primitives.HMACAESTruncated(client.tCertOwnerKDFKey, []byte{1})
+	//ExpansionKey := primitives.HMAC(client.tCertOwnerKDFKey, []byte{2})
 
 	// DER to x509
 	x509Cert, err := primitives.DERToX509Certificate(certBlk.tCertDER)
@@ -230,7 +282,7 @@ func (client *clientImpl) getTCertFromDER(certBlk *TCertDBBlock) (certBlock *TCe
 	// Timestamp assigned, RandValue assigned and counter reinitialized to 1 per batch
 
 	// Decrypt ct to TCertIndex (TODO: || EnrollPub_Key || EnrollID ?)
-	pt, err := primitives.CBCPKCS7Decrypt(TCertOwnerEncryptKey, tCertIndexCT)
+	pt, err := csp.Decrypt(TCertOwnerEncryptKey, tCertIndexCT, &bccsp.AESCBCPKCS7ModeOpts{})
 	if err != nil {
 		client.Errorf("Failed decrypting extension TCERT_ENC_TCERTINDEX [%s].", err.Error())
 
@@ -249,13 +301,6 @@ func (client *clientImpl) getTCertFromDER(certBlk *TCertDBBlock) (certBlock *TCe
 	// Derive tpk and tsk accordingly to ExpansionValue from enrollment pk,sk
 	// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
 	// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
-
-	csp, err := bccsp.GetDefault()
-	if err != nil {
-		client.Errorf("Failed getting BCCSP: [%s].", err)
-
-		return nil, err
-	}
 
 	tempSK, err := csp.DeriveKey(client.enrollPrivKey, &bccsp.ECDSAReRandKeyOpts{false, ExpansionValue})
 	if err != nil {
@@ -290,15 +335,31 @@ func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes []string,
 
 	//	client.debug("TCertOwnerKDFKey [%s].", utils.EncodeBase64(TCertOwnerKDFKey))
 
+	csp, err := bccsp.GetDefault()
+	if err != nil {
+		client.Errorf("Failed getting BCCSP: [%s].", err)
+
+		return err
+	}
+
 	// Store TCertOwnerKDFKey and checks that every time it is always the same key
 	if client.tCertOwnerKDFKey != nil {
 		// Check that the keys are the same
-		equal := bytes.Equal(client.tCertOwnerKDFKey, TCertOwnerKDFKey)
-		if !equal {
-			return errors.New("Failed reciving kdf key from TCA. The keys are different.")
-		}
+		// This check is not needed anymore.
+		// If the TCA sends a different key then the client
+		// will not be able to reconstruct TCert keys anymore and
+		// will find out the problem.
+		//equal := bytes.Equal(client.tCertOwnerKDFKey, TCertOwnerKDFKey)
+		//if !equal {
+		//	return errors.New("Failed reciving kdf key from TCA. The keys are different.")
+		//}
 	} else {
-		client.tCertOwnerKDFKey = TCertOwnerKDFKey
+		kdfKey, err := csp.ImportKey(TCertOwnerKDFKey, &bccsp.HMACImportKeyOpts{Temporary: false})
+		if err != nil {
+			return fmt.Errorf("Failed importing kdf key [%s]", err)
+		}
+
+		client.tCertOwnerKDFKey = kdfKey
 
 		// TODO: handle this situation more carefully
 		if err := client.storeTCertOwnerKDFKey(); err != nil {
@@ -310,14 +371,17 @@ func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes []string,
 
 	// Validate the Certificates obtained
 
-	TCertOwnerEncryptKey := primitives.HMACAESTruncated(client.tCertOwnerKDFKey, []byte{1})
-	ExpansionKey := primitives.HMAC(client.tCertOwnerKDFKey, []byte{2})
-
-	csp, err := bccsp.GetDefault()
+	TCertOwnerEncryptKey, err := csp.DeriveKey(client.tCertOwnerKDFKey, &bccsp.HMACTruncated256AESDeriveKeyOpts{Temporary: true, Arg: []byte{1}})
 	if err != nil {
-		client.Errorf("Failed getting BCCSP: [%s].", err)
-
-		return err
+		return fmt.Errorf("Failed deriving TCertOwnerEncryptKey [%s]", err)
+	}
+	ExpansionKeyCSP, err := csp.DeriveKey(client.tCertOwnerKDFKey, &bccsp.HMACDeriveKeyOpts{Temporary: true, Arg: []byte{2}})
+	if err != nil {
+		return fmt.Errorf("Failed deriving ExpansionKey [%s]", err)
+	}
+	ExpansionKey, err := ExpansionKeyCSP.ToByte()
+	if err != nil {
+		return fmt.Errorf("Failed marshalling ExpansionKey [%s]", err)
 	}
 
 	j := 0
@@ -353,7 +417,7 @@ func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes []string,
 		// Timestamp assigned, RandValue assigned and counter reinitialized to 1 per batch
 
 		// Decrypt ct to TCertIndex (TODO: || EnrollPub_Key || EnrollID ?)
-		pt, err := primitives.CBCPKCS7Decrypt(TCertOwnerEncryptKey, tCertIndexCT)
+		pt, err := csp.Decrypt(TCertOwnerEncryptKey, tCertIndexCT, &bccsp.AESCBCPKCS7ModeOpts{})
 		if err != nil {
 			client.Errorf("Failed decrypting extension TCERT_ENC_TCERTINDEX [%s].", err.Error())
 

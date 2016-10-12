@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
+	"github.com/hyperledger/fabric/core/crypto/bccsp"
 )
 
 type clientImpl struct {
@@ -32,7 +33,7 @@ type clientImpl struct {
 	queryStateKey  []byte
 
 	// TCA KDFKey
-	tCertOwnerKDFKey []byte
+	tCertOwnerKDFKey bccsp.Key
 	tCertPool        tCertPool
 }
 
