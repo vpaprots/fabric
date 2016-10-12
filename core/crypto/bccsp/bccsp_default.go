@@ -50,6 +50,25 @@ func (csp *DefaultBCCSP) GenKey(opts GenKeyOpts) (k Key, err error) {
 		}
 
 		return k, nil
+	case "AES_256":
+		lowLevelKey, err := primitives.GenAESKey()
+
+		if err != nil {
+			return nil, fmt.Errorf("Failed generating AES_256 key [%s]", err)
+		}
+
+		k = &aesPrivateKey{lowLevelKey, false}
+
+		// If the key is not Ephemeral, store it.
+		if !opts.Ephemeral() {
+			// Store the key
+			err = csp.ks.storeKey(hex.EncodeToString(k.GetSKI()), lowLevelKey)
+			if err != nil {
+				return nil, fmt.Errorf("Failed storing AES_256 key [%s]", err)
+			}
+		}
+
+		return k, nil
 	default:
 		return nil, fmt.Errorf("Algorithm not recognized [%s]", opts.Algorithm())
 	}
@@ -129,6 +148,53 @@ func (csp *DefaultBCCSP) DeriveKey(k Key, opts DeriveKeyOpts) (dk Key, err error
 			return nil, errors.New("Opts not suppoted")
 
 		}
+	case *aesPrivateKey:
+		// Validate opts
+		if opts == nil {
+			return nil, errors.New("Invalid opts. Nil.")
+		}
+
+		aesK := k.(*aesPrivateKey)
+
+		switch opts.(type) {
+		case *HMACTruncated256AESDeriveKeyOpts:
+			hmacOpts := opts.(*HMACTruncated256AESDeriveKeyOpts)
+
+			hmacedKey := &aesPrivateKey{primitives.HMACAESTruncated(aesK.k, hmacOpts.Argument()), false}
+
+			// If the key is not Ephemeral, store it.
+			if !opts.Ephemeral() {
+				// Store the key
+				err = csp.ks.storeKey(hex.EncodeToString(hmacedKey.GetSKI()), hmacedKey.k)
+				if err != nil {
+					return nil, fmt.Errorf("Failed storing ECDSA key [%s]", err)
+				}
+			}
+
+			return hmacedKey, nil
+
+		case *HMACDeriveKeyOpts:
+
+			hmacOpts := opts.(*HMACDeriveKeyOpts)
+
+			hmacedKey := &aesPrivateKey{primitives.HMAC(aesK.k, hmacOpts.Argument()), true}
+
+			// If the key is not Ephemeral, store it.
+			if !opts.Ephemeral() {
+				// Store the key
+				err = csp.ks.storeKey(hex.EncodeToString(hmacedKey.GetSKI()), hmacedKey.k)
+				if err != nil {
+					return nil, fmt.Errorf("Failed storing ECDSA key [%s]", err)
+				}
+			}
+
+			return hmacedKey, nil
+
+		default:
+			return nil, errors.New("Opts not suppoted")
+
+		}
+
 	default:
 		return nil, fmt.Errorf("Key type not recognized [%s]", k)
 	}
@@ -217,11 +283,47 @@ func (csp *DefaultBCCSP) Verify(k Key, signature, digest []byte) (valid bool, er
 // Encrypt encrypts plaintext using key k.
 // The opts argument should be appropriate for the primitive used.
 func (csp *DefaultBCCSP) Encrypt(k Key, plaintext []byte, opts EncrypterOpts) (ciphertext []byte, err error) {
-	return nil, errors.New("Not imeplemtend yet")
+	// Validate arguments
+	if k == nil {
+		return nil, errors.New("Invalid key. Nil.")
+	}
+
+	// Check key type
+	switch k.(type) {
+	case *aesPrivateKey:
+		// check for mode
+		switch opts.(type) {
+		case *AESCBCPKCS7ModeOpts, AESCBCPKCS7ModeOpts:
+			// AES in CBC mode with PKCS7 padding
+			return primitives.CBCPKCS7Encrypt(k.(*aesPrivateKey).k, plaintext)
+		default:
+			return nil, fmt.Errorf("Mode not recognized [%s]", opts)
+		}
+	default:
+		return nil, fmt.Errorf("Key type not recognized [%s]", k)
+	}
 }
 
 // Decrypt decrypts ciphertext using key k.
 // The opts argument should be appropriate for the primitive used.
 func (csp *DefaultBCCSP) Decrypt(k Key, ciphertext []byte, opts DecrypterOpts) (plaintext []byte, err error) {
-	return nil, errors.New("Not imeplemtend yet")
+	// Validate arguments
+	if k == nil {
+		return nil, errors.New("Invalid key. Nil.")
+	}
+
+	// Check key type
+	switch k.(type) {
+	case *aesPrivateKey:
+		// check for mode
+		switch opts.(type) {
+		case *AESCBCPKCS7ModeOpts, AESCBCPKCS7ModeOpts:
+			// AES in CBC mode with PKCS7 padding
+			return primitives.CBCPKCS7Decrypt(k.(*aesPrivateKey).k, ciphertext)
+		default:
+			return nil, fmt.Errorf("Mode not recognized [%s]", opts)
+		}
+	default:
+		return nil, fmt.Errorf("Key type not recognized [%s]", k)
+	}
 }

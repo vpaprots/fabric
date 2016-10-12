@@ -252,3 +252,149 @@ func TestDefaultBCCSP_DeriveKey2(t *testing.T) {
 		t.Fatal("Failed verifying ECDSA signature. Signature not valid.")
 	}
 }
+
+func TestDefaultBCCSP_GenKey3(t *testing.T) {
+	csp := getDefaultBCCSP(t)
+
+	k, err := csp.GenKey(&AES256GenKeyOpts{false})
+	if err != nil {
+		t.Fatalf("Failed generating AES_256 key [%s]", err)
+	}
+	if k == nil {
+		t.Fatal("Failed generating AES_256 key. Key must be different from nil")
+	}
+	if !k.Private() {
+		t.Fatal("Failed generating AES_256 key. Key should be private")
+	}
+	if !k.Symmetric() {
+		t.Fatal("Failed generating AES_256 key. Key should be symmetric")
+	}
+}
+
+func TestDefaultBCCSP_Encrypt(t *testing.T) {
+	csp := getDefaultBCCSP(t)
+
+	k, err := csp.GenKey(&AES256GenKeyOpts{true})
+	if err != nil {
+		t.Fatalf("Failed generating AES_256 key [%s]", err)
+	}
+
+	ct, err := csp.Encrypt(k, []byte("Hello World"), &AESCBCPKCS7ModeOpts{})
+	if err != nil {
+		t.Fatalf("Failed encrypting [%s]", err)
+	}
+	if len(ct) == 0 {
+		t.Fatal("Failed encrypting. Nil ciphertext")
+	}
+}
+
+func TestDefaultBCCSP_Decrypt(t *testing.T) {
+	csp := getDefaultBCCSP(t)
+
+	k, err := csp.GenKey(&AES256GenKeyOpts{true})
+	if err != nil {
+		t.Fatalf("Failed generating AES_256 key [%s]", err)
+	}
+
+	msg := []byte("Hello World")
+
+	ct, err := csp.Encrypt(k, msg, &AESCBCPKCS7ModeOpts{})
+	if err != nil {
+		t.Fatalf("Failed encrypting [%s]", err)
+	}
+
+	pt, err := csp.Decrypt(k, ct, AESCBCPKCS7ModeOpts{})
+	if err != nil {
+		t.Fatalf("Failed decrypting [%s]", err)
+	}
+	if len(ct) == 0 {
+		t.Fatal("Failed decrypting. Nil plaintext")
+	}
+
+	if !bytes.Equal(msg, pt) {
+		t.Fatalf("Failed decrypting. Decrypted plaintext is different from the original. [%x][%x]", msg, pt)
+	}
+}
+
+func TestDefaultBCCSP_DeriveKey3(t *testing.T) {
+	csp := getDefaultBCCSP(t)
+
+	k, err := csp.GenKey(&AES256GenKeyOpts{true})
+	if err != nil {
+		t.Fatalf("Failed generating AES_256 key [%s]", err)
+	}
+
+	hmcaedKey, err := csp.DeriveKey(k, &HMACTruncated256AESDeriveKeyOpts{false, []byte{1}})
+	if err != nil {
+		t.Fatalf("Failed HMACing AES_256 key [%s]", err)
+	}
+	if k == nil {
+		t.Fatal("Failed HMACing AES_256 key. HMACed Key must be different from nil")
+	}
+	if !hmcaedKey.Private() {
+		t.Fatal("Failed HMACing AES_256 key. HMACed Key should be private")
+	}
+	if !hmcaedKey.Symmetric() {
+		t.Fatal("Failed HMACing AES_256 key. HMACed Key should be asymmetric")
+	}
+	raw, err := hmcaedKey.ToByte()
+	if err == nil {
+		t.Fatal("Failed marshalling to bytes. Operation must be forbidden")
+	}
+	if len(raw) != 0 {
+		t.Fatal("Failed marshalling to bytes. Operation must return 0 bytes")
+	}
+
+
+	msg := []byte("Hello World")
+
+	ct, err := csp.Encrypt(hmcaedKey, msg, &AESCBCPKCS7ModeOpts{})
+	if err != nil {
+		t.Fatalf("Failed encrypting [%s]", err)
+	}
+
+	pt, err := csp.Decrypt(hmcaedKey, ct, AESCBCPKCS7ModeOpts{})
+	if err != nil {
+		t.Fatalf("Failed decrypting [%s]", err)
+	}
+	if len(ct) == 0 {
+		t.Fatal("Failed decrypting. Nil plaintext")
+	}
+
+	if !bytes.Equal(msg, pt) {
+		t.Fatalf("Failed decrypting. Decrypted plaintext is different from the original. [%x][%x]", msg, pt)
+	}
+
+}
+
+func TestDefaultBCCSP_DeriveKey4(t *testing.T) {
+	csp := getDefaultBCCSP(t)
+
+	k, err := csp.GenKey(&AES256GenKeyOpts{true})
+	if err != nil {
+		t.Fatalf("Failed generating AES_256 key [%s]", err)
+	}
+
+	hmcaedKey, err := csp.DeriveKey(k, &HMACDeriveKeyOpts{false, []byte{1}})
+
+	if err != nil {
+		t.Fatalf("Failed HMACing AES_256 key [%s]", err)
+	}
+	if k == nil {
+		t.Fatal("Failed HMACing AES_256 key. HMACed Key must be different from nil")
+	}
+	if !hmcaedKey.Private() {
+		t.Fatal("Failed HMACing AES_256 key. HMACed Key should be private")
+	}
+	if !hmcaedKey.Symmetric() {
+		t.Fatal("Failed HMACing AES_256 key. HMACed Key should be asymmetric")
+	}
+	raw, err := hmcaedKey.ToByte()
+	if err != nil {
+		t.Fatalf("Failed marshalling to bytes [%s]", err)
+	}
+	if len(raw) == 0 {
+		t.Fatal("Failed marshalling to bytes. 0 bytes")
+	}
+
+}
