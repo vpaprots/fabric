@@ -79,7 +79,7 @@ func (carPlatform *Platform) WritePackage(spec *pb.ChaincodeSpec, tw *tar.Writer
 	//let the executable's name be chaincode ID's name
 	buf = append(buf, cutil.GetDockerfileFromConfig("chaincode.car.Dockerfile"))
 	buf = append(buf, "COPY package.car /tmp/package.car")
-	buf = append(buf, fmt.Sprintf("RUN chaintool buildcar /tmp/package.car -o $GOPATH/bin/%s && rm /tmp/package.car", spec.ChaincodeID.Name))
+	buf = append(buf, fmt.Sprintf("RUN java -jar /usr/local/bin/chaintool buildcar /tmp/package.car -o $GOPATH/bin/%s && rm /tmp/package.car", spec.ChaincodeID.Name))
 
 	dockerFileContents := strings.Join(buf, "\n")
 	dockerFileSize := int64(len([]byte(dockerFileContents)))

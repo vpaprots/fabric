@@ -40,7 +40,7 @@ def step_impl(context, composeYamlFile):
 
     bdd_compose_util.parseComposeOutput(context)
 
-    timeoutSeconds = 30
+    timeoutSeconds = 60
     assert bdd_compose_util.allContainersAreReadyWithinTimeout(context, timeoutSeconds), \
         "Containers did not come up within {} seconds, aborting".format(timeoutSeconds)
 

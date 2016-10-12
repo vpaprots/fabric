@@ -1,4 +1,5 @@
-FROM openjdk:8
+FROM _JAVA_BASE_
+RUN apt-get update && apt-get install -y autoconf automake build-essential libtool curl make g++ git patch unzip
 RUN wget https://services.gradle.org/distributions/gradle-2.12-bin.zip -P /tmp --quiet
 RUN unzip -qo /tmp/gradle-2.12-bin.zip -d /opt && rm /tmp/gradle-2.12-bin.zip
 RUN ln -s /opt/gradle-2.12/bin/gradle /usr/bin
@@ -12,6 +13,32 @@ ENV MAVEN_HOME /usr/share/maven
 ENV MAVEN_CONFIG "$USER_HOME_DIR/.m2"
 ADD javashimsrc.tar.bz2 /root
 ADD protos.tar.bz2 /root
+
+WORKDIR /tmp
+RUN git clone https://github.com/google/protobuf protobuf-3.0.0-beta-2
+WORKDIR protobuf-3.0.0-beta-2
+RUN git checkout v3.0.0-beta-2
+# missing attomic gcc primitives
+RUN git -c user.email="your@email.com" -c user.name="Your Name" cherry-pick fd1c289
+# gmock dead links
+RUN git -c user.email="your@email.com" -c user.name="Your Name" cherry-pick 1760feb
+RUN ./autogen.sh && ./configure --prefix=/usr && make && make check && make install
+
+#Need Gradle 2.10, with s390x/ppc support, to build grpc-java
+RUN wget https://services.gradle.org/distributions/gradle-2.10-src.zip -P /tmp --quiet
+RUN unzip -qo /tmp/gradle-2.10-src.zip -d /tmp && rm /tmp/gradle-2.10-src.zip
+WORKDIR /tmp/gradle-2.10
+RUN cat /root/core/chaincode/shim/java/gradle.patch | patch -p1
+RUN gradle install --stacktrace -Pgradle_installPath=/opt/gradle-2.10
+
+WORKDIR /tmp
+RUN git clone https://github.com/grpc/grpc-java
+WORKDIR /tmp/grpc-java
+RUN git checkout v0.13.2 && cat /root/core/chaincode/shim/java/grpc-java.patch | patch -p1
+RUN /opt/gradle-2.10/bin/gradle -Pprotoc=/usr/bin/protoc grpc-compiler:install
+RUN ln -s /tmp/grpc-java/compiler/build/exe/java_plugin/protoc-gen-grpc-java /usr/bin/protoc-gen-grpc-java
+RUN rm -rf /tmp/gradle-2.10 /opt/gradle-2.10
+
 WORKDIR /root
 # Build java shim after copying proto files from fabric/proto
 RUN core/chaincode/shim/java/javabuild.sh

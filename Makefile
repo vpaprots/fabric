@@ -53,7 +53,12 @@ PKGNAME = github.com/$(PROJECT_NAME)
 GO_LDFLAGS = -X github.com/hyperledger/fabric/metadata.Version=$(PROJECT_VERSION)
 CGO_FLAGS = CGO_CFLAGS=" " CGO_LDFLAGS="-lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy"
 UID = $(shell id -u)
+ARCH=$(shell uname -m)
 CHAINTOOL_RELEASE=v0.9.1
+JAVA_BASE_DOCKER_s390x=s390x/ibmjava:8-sdk
+JAVA_BASE_DOCKER_ppcle=ppc64le/ibmjava:8-sdk
+JAVA_BASE_DOCKER_x86_64=openjdk:8
+JAVA_BASE_DOCKER=$(JAVA_BASE_DOCKER_$(ARCH))
 
 EXECUTABLES = go docker git curl
 K := $(foreach exec,$(EXECUTABLES),\
@@ -216,7 +221,9 @@ build/image/ccenv/.dummy: build/image/src/.dummy build/image/ccenv/bin/protoc-ge
 build/image/javaenv/.dummy: Makefile $(JAVASHIM_DEPS)
 	@echo "Building docker javaenv-image"
 	@mkdir -p $(@D)
-	@cat images/javaenv/Dockerfile.in > $(@D)/Dockerfile
+	@cat images/javaenv/Dockerfile.in \
+		| sed -e 's!_JAVA_BASE_!$(JAVA_BASE_DOCKER)!g' \
+		> $(@D)/Dockerfile
 	@git ls-files core/chaincode/shim/java | tar -jcT - > $(@D)/javashimsrc.tar.bz2
 	@git ls-files protos core/chaincode/shim/table.proto settings.gradle  | tar -jcT - > $(@D)/protos.tar.bz2
 	docker build -t $(PROJECT_NAME)-javaenv $(@D)

@@ -5,4 +5,9 @@
 apt-get update -qq
 
 # Used by CHAINTOOL
-apt-get install -y default-jre
+if [ x$MACHINE = xs390x -o x$MACHINE = xppc64le ]
+then
+   : #already installed in common/setup.sh
+else
+    apt-get install -y default-jre
+fi

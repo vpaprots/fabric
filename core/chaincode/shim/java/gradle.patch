@@ -1,0 +1,71 @@
+diff --git a/subprojects/platform-native/src/main/groovy/org/gradle/nativeplatform/platform/internal/Architectures.java b/subprojects/platform-native/src/main/groovy/org/gradle/nativeplatform/platform/internal/Architectures.java
+index 555d4d7..6d61974 100644
+--- a/subprojects/platform-native/src/main/groovy/org/gradle/nativeplatform/platform/internal/Architectures.java
++++ b/subprojects/platform-native/src/main/groovy/org/gradle/nativeplatform/platform/internal/Architectures.java
+@@ -35,6 +35,9 @@ public class Architectures {
+             new KnownArchitecture("arm-v8", "arm64"),
+             new KnownArchitecture("ppc"),
+             new KnownArchitecture("ppc64"),
++            new KnownArchitecture("ppc64le"),
++            new KnownArchitecture("s390"),
++            new KnownArchitecture("s390x"),
+             new KnownArchitecture("sparc-v8", "sparc", "sparc32"),
+             new KnownArchitecture("sparc-v9", "sparc64", "ultrasparc")
+     );
+diff --git a/subprojects/platform-native/src/main/groovy/org/gradle/nativeplatform/platform/internal/NativePlatforms.java b/subprojects/platform-native/src/main/groovy/org/gradle/nativeplatform/platform/internal/NativePlatforms.java
+index 90ba31a..d796e29 100644
+--- a/subprojects/platform-native/src/main/groovy/org/gradle/nativeplatform/platform/internal/NativePlatforms.java
++++ b/subprojects/platform-native/src/main/groovy/org/gradle/nativeplatform/platform/internal/NativePlatforms.java
+@@ -36,6 +36,7 @@ public class NativePlatforms {
+         OperatingSystemInternal unix = new DefaultOperatingSystem(OS_UNIX);
+         OperatingSystemInternal freebsd = new DefaultOperatingSystem("freebsd");
+         OperatingSystemInternal solaris = new DefaultOperatingSystem("solaris");
++        OperatingSystemInternal zos = new DefaultOperatingSystem("zos");
+ 
+         ArchitectureInternal x86 = Architectures.forInput(ARCH_X86);
+         ArchitectureInternal x64 = Architectures.forInput("x86_64");
+@@ -46,6 +47,9 @@ public class NativePlatforms {
+         ArchitectureInternal ultrasparc = Architectures.forInput("ultrasparc");
+         ArchitectureInternal ppc = Architectures.forInput("ppc");
+         ArchitectureInternal ppc64 = Architectures.forInput("ppc64");
++        ArchitectureInternal ppc64le = Architectures.forInput("ppc64le");
++        ArchitectureInternal s390 = Architectures.forInput("s390");
++        ArchitectureInternal s390x = Architectures.forInput("s390x");
+ 
+         platforms.add(createPlatform(windows, x86));
+         platforms.add(createPlatform(windows, x64));
+@@ -65,11 +69,21 @@ public class NativePlatforms {
+         platforms.add(createPlatform(unix, armv8));
+         platforms.add(createPlatform(unix, ppc));
+         platforms.add(createPlatform(unix, ppc64));
++//        platforms.add(createPlatform(unix, s390));
++//        platforms.add(createPlatform(unix, s390x));
+ 
+         platforms.add(createPlatform(linux, x64));
+         platforms.add(createPlatform(linux, x86));
+         platforms.add(createPlatform(linux, armv7));
+         platforms.add(createPlatform(linux, armv8));
++        platforms.add(createPlatform(linux, ppc));
++        platforms.add(createPlatform(linux, ppc64));
++        platforms.add(createPlatform(linux, ppc64le));
++        platforms.add(createPlatform(linux, s390));
++        platforms.add(createPlatform(linux, s390x));
++
++        platforms.add(createPlatform(zos, s390));
++        platforms.add(createPlatform(zos, s390x));
+ 
+         platforms.add(createPlatform(osx, x86));
+         platforms.add(createPlatform(osx, x64));
+diff --git a/subprojects/platform-native/src/main/groovy/org/gradle/nativeplatform/toolchain/internal/gcc/AbstractGccCompatibleToolChain.java b/subprojects/platform-native/src/main/groovy/org/gradle/nativeplatform/toolchain/internal/gcc/AbstractGccCompatibleToolChain.java
+index 915dd0d..019c8fe 100644
+--- a/subprojects/platform-native/src/main/groovy/org/gradle/nativeplatform/toolchain/internal/gcc/AbstractGccCompatibleToolChain.java
++++ b/subprojects/platform-native/src/main/groovy/org/gradle/nativeplatform/toolchain/internal/gcc/AbstractGccCompatibleToolChain.java
+@@ -77,6 +77,8 @@ public abstract class AbstractGccCompatibleToolChain extends ExtendableToolChain
+         target(new Intel32Architecture());
+         target(new Intel64Architecture());
+         configInsertLocation = 0;
++        target("linux_s390x");
++        target("linux_ppc64le");
+     }
+ 
+     protected CommandLineToolSearchResult locate(GccCommandLineToolConfigurationInternal gccTool) {
