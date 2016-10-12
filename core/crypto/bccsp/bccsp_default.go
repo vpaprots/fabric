@@ -10,6 +10,7 @@ import (
 	"github.com/op/go-logging"
 	"encoding/hex"
 	"math/big"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
 var (
@@ -208,24 +209,83 @@ func (csp *DefaultBCCSP) GetKey(ski []byte) (k Key, err error) {
 		return nil, errors.New("Invalid ski. Zero length.")
 	}
 
-	// Load the key
-	key, err := csp.ks.loadPrivateKey(hex.EncodeToString(ski))
-	if err != nil {
-		return nil, fmt.Errorf("Failed loading key [%x] [%s]", ski, err)
-	}
 
-	switch key.(type) {
-	case *ecdsa.PrivateKey:
-		return &ecdsaPrivateKey{key.(*ecdsa.PrivateKey)}, nil
+	suffix := csp.ks.getSuffix(hex.EncodeToString(ski))
+
+	switch suffix {
+	case "key":
+		// Load the key
+		key, err := csp.ks.loadKey(hex.EncodeToString(ski))
+		if err != nil {
+			return nil, fmt.Errorf("Failed loading key [%x] [%s]", ski, err)
+		}
+
+		return &aesPrivateKey{key, false}, nil
+	case "sk":
+		// Load the private key
+		key, err := csp.ks.loadPrivateKey(hex.EncodeToString(ski))
+		if err != nil {
+			return nil, fmt.Errorf("Failed loading key [%x] [%s]", ski, err)
+		}
+
+		switch key.(type) {
+		case *ecdsa.PrivateKey:
+			return &ecdsaPrivateKey{key.(*ecdsa.PrivateKey)}, nil
+		default:
+			return nil, errors.New("Key type not recognized")
+		}
 	default:
-		return nil, errors.New("Key type not recognized")
+		return nil, errors.New("Key not recognized")
 	}
 }
 
 // ImportKey imports a key from its raw representation using opts.
 // The opts argument should be appropriate for the primitive used.
 func (csp *DefaultBCCSP) ImportKey(raw []byte, opts ImportKeyOpts) (k Key, err error) {
-	return nil, errors.New("Not imeplemtend yet")
+	// Validate arguments
+	if len(raw) == 0 {
+		return nil, errors.New("Invalid raw. Zero length.")
+	}
+	if opts == nil {
+		return nil, errors.New("Invalid opts. Nil.")
+	}
+
+	switch opts.(type) {
+	case *AES256ImportKeyOpts:
+
+		if len(raw) != 32 {
+			return nil, fmt.Errorf("Invalid Key Length [%d]. Must be 32 bytes", len(raw))
+		}
+
+		aesK := &aesPrivateKey{utils.Clone(raw), false}
+
+		// If the key is not Ephemeral, store it.
+		if !opts.Ephemeral() {
+			// Store the key
+			err = csp.ks.storeKey(hex.EncodeToString(aesK.GetSKI()), aesK.k)
+			if err != nil {
+				return nil, fmt.Errorf("Failed storing AES key [%s]", err)
+			}
+		}
+
+		return aesK, nil
+	case *HMACImportKeyOpts:
+
+		aesK := &aesPrivateKey{utils.Clone(raw), false}
+
+		// If the key is not Ephemeral, store it.
+		if !opts.Ephemeral() {
+			// Store the key
+			err = csp.ks.storeKey(hex.EncodeToString(aesK.GetSKI()), aesK.k)
+			if err != nil {
+				return nil, fmt.Errorf("Failed storing AES key [%s]", err)
+			}
+		}
+
+		return aesK, nil
+	default:
+		return nil, errors.New("Import Key Options not recognized")
+	}
 }
 
 // Sign signs digest using key k.

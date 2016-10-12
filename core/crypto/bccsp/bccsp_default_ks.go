@@ -10,6 +10,7 @@ import (
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 type defaultBCCSPKeyStore struct {
@@ -53,13 +54,23 @@ func (ks *defaultBCCSPKeyStore) init(pwd []byte) error {
 	return nil
 }
 
-func (ks *defaultBCCSPKeyStore) isAliasSet(alias string) bool {
-	missing, _ := utils.FilePathMissing(ks.conf.getPathForAlias(alias))
-	if missing {
-		return false
+func (ks *defaultBCCSPKeyStore) getSuffix(alias string) string {
+	files, _ := ioutil.ReadDir(ks.conf.getKeyStorePath())
+	for _, f := range files {
+		if strings.HasPrefix(f.Name(), alias) {
+			if strings.HasSuffix(f.Name(), "sk") {
+				return "sk"
+			}
+			if strings.HasSuffix(f.Name(), "pk") {
+				return "pk"
+			}
+			if strings.HasSuffix(f.Name(), "key") {
+				return "key"
+			}
+			break
+		}
 	}
-
-	return true
+	return ""
 }
 
 func (ks *defaultBCCSPKeyStore) storePrivateKey(alias string, privateKey interface{}) error {
@@ -69,7 +80,7 @@ func (ks *defaultBCCSPKeyStore) storePrivateKey(alias string, privateKey interfa
 		return err
 	}
 
-	err = ioutil.WriteFile(ks.conf.getPathForAlias(alias), rawKey, 0700)
+	err = ioutil.WriteFile(ks.conf.getPathForAlias(alias, "sk"), rawKey, 0700)
 	if err != nil {
 		defaultBCCSPLog.Errorf("Failed storing private key [%s]: [%s]", alias, err)
 		return err
@@ -79,7 +90,7 @@ func (ks *defaultBCCSPKeyStore) storePrivateKey(alias string, privateKey interfa
 }
 
 func (ks *defaultBCCSPKeyStore) loadPrivateKey(alias string) (interface{}, error) {
-	path := ks.conf.getPathForAlias(alias)
+	path := ks.conf.getPathForAlias(alias, "sk")
 	defaultBCCSPLog.Debugf("Loading private key [%s] at [%s]...", alias, path)
 
 	raw, err := ioutil.ReadFile(path)
@@ -106,7 +117,7 @@ func (ks *defaultBCCSPKeyStore) storePublicKey(alias string, publicKey interface
 		return err
 	}
 
-	err = ioutil.WriteFile(ks.conf.getPathForAlias(alias), rawKey, 0700)
+	err = ioutil.WriteFile(ks.conf.getPathForAlias(alias, "pk"), rawKey, 0700)
 	if err != nil {
 		defaultBCCSPLog.Errorf("Failed storing private key [%s]: [%s]", alias, err)
 		return err
@@ -116,7 +127,7 @@ func (ks *defaultBCCSPKeyStore) storePublicKey(alias string, publicKey interface
 }
 
 func (ks *defaultBCCSPKeyStore) loadPublicKey(alias string) (interface{}, error) {
-	path := ks.conf.getPathForAlias(alias)
+	path := ks.conf.getPathForAlias(alias, "pk")
 	defaultBCCSPLog.Debugf("Loading public key [%s] at [%s]...", alias, path)
 
 	raw, err := ioutil.ReadFile(path)
@@ -143,7 +154,7 @@ func (ks *defaultBCCSPKeyStore) storeKey(alias string, key []byte) error {
 		return err
 	}
 
-	err = ioutil.WriteFile(ks.conf.getPathForAlias(alias), pem, 0700)
+	err = ioutil.WriteFile(ks.conf.getPathForAlias(alias, "key"), pem, 0700)
 	if err != nil {
 		defaultBCCSPLog.Errorf("Failed storing key [%s]: [%s]", alias, err)
 		return err
@@ -153,7 +164,7 @@ func (ks *defaultBCCSPKeyStore) storeKey(alias string, key []byte) error {
 }
 
 func (ks *defaultBCCSPKeyStore) loadKey(alias string) ([]byte, error) {
-	path := ks.conf.getPathForAlias(alias)
+	path := ks.conf.getPathForAlias(alias, "key")
 	defaultBCCSPLog.Debugf("Loading key [%s] at [%s]...", alias, path)
 
 	pem, err := ioutil.ReadFile(path)

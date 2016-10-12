@@ -47,8 +47,8 @@ func (conf *defaultBCCSPConfiguration) getKeyStorePath() string {
 	return conf.keystorePath
 }
 
-func (conf *defaultBCCSPConfiguration) getPathForAlias(alias string) string {
-	return filepath.Join(conf.getKeyStorePath(), alias)
+func (conf *defaultBCCSPConfiguration) getPathForAlias(alias, suffix string) string {
+	return filepath.Join(conf.getKeyStorePath(), alias + "_" + suffix)
 }
 
 
