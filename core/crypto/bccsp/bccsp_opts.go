@@ -37,3 +37,67 @@ func (opts *ECDSAReRandKeyOpts) Ephemeral() bool {
 func (opts *ECDSAReRandKeyOpts) ExpansionValue() []byte {
 	return opts.Expansion
 }
+
+type AES256GenKeyOpts struct {
+	Temporary bool
+}
+
+// Algorithm returns an identifier for the algorithm to be used
+// to generate a key.
+func (opts *AES256GenKeyOpts) Algorithm() string {
+	return "AES_256"
+}
+
+// Ephemeral returns true if the key to generate has to be ephemeral,
+// false otherwise.
+func (opts *AES256GenKeyOpts) Ephemeral() bool {
+	return opts.Temporary
+}
+
+type AESCBCPKCS7ModeOpts struct {
+
+}
+
+type HMACTruncated256AESDeriveKeyOpts struct {
+	Temporary bool
+	Arg       []byte
+}
+
+// Algorithm returns an identifier for the algorithm to be used
+// to generate a key.
+func (opts *HMACTruncated256AESDeriveKeyOpts) Algorithm() string {
+	return "HMAC_TRUNCATED_256"
+}
+
+// Ephemeral returns true if the key to generate has to be ephemeral,
+// false otherwise.
+func (opts *HMACTruncated256AESDeriveKeyOpts) Ephemeral() bool {
+	return opts.Temporary
+}
+
+// Argument returns the argument to be passed to the HMAC
+func (opts *HMACTruncated256AESDeriveKeyOpts) Argument() []byte {
+	return opts.Arg
+}
+
+type HMACDeriveKeyOpts struct {
+	Temporary bool
+	Arg []byte
+}
+
+// Algorithm returns an identifier for the algorithm to be used
+// to generate a key.
+func (opts *HMACDeriveKeyOpts) Algorithm() string {
+	return "HMAC"
+}
+
+// Ephemeral returns true if the key to generate has to be ephemeral,
+// false otherwise.
+func (opts *HMACDeriveKeyOpts) Ephemeral() bool {
+	return opts.Temporary
+}
+
+// Argument returns the argument to be passed to the HMAC
+func (opts *HMACDeriveKeyOpts) Argument() []byte {
+	return opts.Arg
+}
