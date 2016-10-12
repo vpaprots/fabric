@@ -1,5 +1,7 @@
 package bccsp
 
+import "crypto"
+
 // Key represents a key
 type Key interface {
 
@@ -60,7 +62,9 @@ type ImportKeyOpts interface{
 }
 
 // SignerOpts contains options for signing with a CSP.
-type SignerOpts interface{}
+type SignerOpts interface{
+	crypto.SignerOpts
+}
 
 // EncrypterOpts contains options for encrypting with a CSP.
 type EncrypterOpts interface{}
