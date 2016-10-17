@@ -7,19 +7,19 @@ import (
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
-type ecdsaPrivateKey struct {
+type swECDSAPrivateKey struct {
 	k *ecdsa.PrivateKey
 }
 
 
 // ToByte converts this key to its byte representation,
 // if this operation is allowed.
-func (k *ecdsaPrivateKey) ToByte() (raw []byte, err error) {
+func (k *swECDSAPrivateKey) ToByte() (raw []byte, err error) {
 	return
 }
 
 // GetSKI returns the subject key identifier of this key.
-func (k *ecdsaPrivateKey) GetSKI() (ski []byte) {
+func (k *swECDSAPrivateKey) GetSKI() (ski []byte) {
 	raw, _ := primitives.PrivateKeyToDER(k.k)
 	// TODO: Error should not be thrown. Anyway, move the marshalling at initialization.
 
@@ -28,32 +28,32 @@ func (k *ecdsaPrivateKey) GetSKI() (ski []byte) {
 
 // Symmetric returns true if this key is a symmetric key,
 // false is this key is asymmetric
-func (k *ecdsaPrivateKey) Symmetric() (bool) {
+func (k *swECDSAPrivateKey) Symmetric() (bool) {
 	return false
 }
 
 // Private returns true if this key is an asymmetric private key,
 // false otherwise.
-func (k *ecdsaPrivateKey) Private() (bool) {
+func (k *swECDSAPrivateKey) Private() (bool) {
 	return true
 }
 
 // PublicKey returns the corresponding public key if this key
 // is an asymmetric private key. If this key is already public,
 // PublicKey returns this key itself.
-func (k *ecdsaPrivateKey) PublicKey() (Key, error) {
-	return &ecdsaPublicKey{&k.k.PublicKey}, nil
+func (k *swECDSAPrivateKey) PublicKey() (Key, error) {
+	return &swECDSAPublicKey{&k.k.PublicKey}, nil
 }
 
 
-type ecdsaPublicKey struct {
+type swECDSAPublicKey struct {
 	k *ecdsa.PublicKey
 }
 
 
 // ToByte converts this key to its byte representation,
 // if this operation is allowed.
-func (k *ecdsaPublicKey) ToByte() (raw []byte, err error) {
+func (k *swECDSAPublicKey) ToByte() (raw []byte, err error) {
 	raw, err = x509.MarshalPKIXPublicKey(k.k)
 	if err != nil {
 		return nil, fmt.Errorf("Failed marshalling key [%s]", err)
@@ -62,7 +62,7 @@ func (k *ecdsaPublicKey) ToByte() (raw []byte, err error) {
 }
 
 // GetSKI returns the subject key identifier of this key.
-func (k *ecdsaPublicKey) GetSKI() (ski []byte) {
+func (k *swECDSAPublicKey) GetSKI() (ski []byte) {
 	raw, _ := primitives.PublicKeyToPEM(k.k, nil)
 	// TODO: Error should not be thrown. Anyway, move the marshalling at initialization.
 
@@ -71,20 +71,20 @@ func (k *ecdsaPublicKey) GetSKI() (ski []byte) {
 
 // Symmetric returns true if this key is a symmetric key,
 // false is this key is asymmetric
-func (k *ecdsaPublicKey) Symmetric() (bool) {
+func (k *swECDSAPublicKey) Symmetric() (bool) {
 	return false
 }
 
 // Private returns true if this key is an asymmetric private key,
 // false otherwise.
-func (k *ecdsaPublicKey) Private() (bool) {
+func (k *swECDSAPublicKey) Private() (bool) {
 	return false
 }
 
 // PublicKey returns the corresponding public key if this key
 // is an asymmetric private key. If this key is already public,
 // PublicKey returns this key itself.
-func (k *ecdsaPublicKey) PublicKey() (Key, error) {
+func (k *swECDSAPublicKey) PublicKey() (Key, error) {
 	return k, nil
 }
 
