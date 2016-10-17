@@ -8,13 +8,13 @@ import (
 	"os"
 )
 
-type defaultBCCSPConfiguration struct {
+type swBCCSPConfiguration struct {
 	keystorePath      string
 
 	configurationPathProperty string
 }
 
-func (conf *defaultBCCSPConfiguration) init() error {
+func (conf *swBCCSPConfiguration) init() error {
 	conf.configurationPathProperty = "security.bccsp.default.keyStorePath"
 
 	// Check mandatory fields
@@ -35,7 +35,7 @@ func (conf *defaultBCCSPConfiguration) init() error {
 	return nil
 }
 
-func (conf *defaultBCCSPConfiguration) checkProperty(property string) error {
+func (conf *swBCCSPConfiguration) checkProperty(property string) error {
 	res := viper.GetString(property)
 	if res == "" {
 		return errors.New("Property not specified in configuration file. Please check that property is set: " + property)
@@ -43,11 +43,11 @@ func (conf *defaultBCCSPConfiguration) checkProperty(property string) error {
 	return nil
 }
 
-func (conf *defaultBCCSPConfiguration) getKeyStorePath() string {
+func (conf *swBCCSPConfiguration) getKeyStorePath() string {
 	return conf.keystorePath
 }
 
-func (conf *defaultBCCSPConfiguration) getPathForAlias(alias, suffix string) string {
+func (conf *swBCCSPConfiguration) getPathForAlias(alias, suffix string) string {
 	return filepath.Join(conf.getKeyStorePath(), alias + "_" + suffix)
 }
 

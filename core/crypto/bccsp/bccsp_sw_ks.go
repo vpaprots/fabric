@@ -13,8 +13,8 @@ import (
 	"strings"
 )
 
-type defaultBCCSPKeyStore struct {
-	conf *defaultBCCSPConfiguration
+type swBCCSPKeyStore struct {
+	conf *swBCCSPConfiguration
 	
 	isOpen bool
 
@@ -24,7 +24,7 @@ type defaultBCCSPKeyStore struct {
 	m sync.Mutex
 }
 
-func (ks *defaultBCCSPKeyStore) init(pwd []byte) error {
+func (ks *swBCCSPKeyStore) init(pwd []byte) error {
 	ks.m.Lock()
 	defer ks.m.Unlock()
 
@@ -32,7 +32,7 @@ func (ks *defaultBCCSPKeyStore) init(pwd []byte) error {
 		return errors.New("Keystore already Initilized.")
 	}
 
-	ks.conf = &defaultBCCSPConfiguration{}
+	ks.conf = &swBCCSPConfiguration{}
 	err := ks.conf.init()
 	if err != nil {
 		return fmt.Errorf("Failed initializing configuration [%s]", err)
@@ -54,7 +54,7 @@ func (ks *defaultBCCSPKeyStore) init(pwd []byte) error {
 	return nil
 }
 
-func (ks *defaultBCCSPKeyStore) getSuffix(alias string) string {
+func (ks *swBCCSPKeyStore) getSuffix(alias string) string {
 	files, _ := ioutil.ReadDir(ks.conf.getKeyStorePath())
 	for _, f := range files {
 		if strings.HasPrefix(f.Name(), alias) {
@@ -73,7 +73,7 @@ func (ks *defaultBCCSPKeyStore) getSuffix(alias string) string {
 	return ""
 }
 
-func (ks *defaultBCCSPKeyStore) storePrivateKey(alias string, privateKey interface{}) error {
+func (ks *swBCCSPKeyStore) storePrivateKey(alias string, privateKey interface{}) error {
 	rawKey, err := primitives.PrivateKeyToPEM(privateKey, ks.pwd)
 	if err != nil {
 		defaultBCCSPLog.Errorf("Failed converting private key to PEM [%s]: [%s]", alias, err)
@@ -89,7 +89,7 @@ func (ks *defaultBCCSPKeyStore) storePrivateKey(alias string, privateKey interfa
 	return nil
 }
 
-func (ks *defaultBCCSPKeyStore) loadPrivateKey(alias string) (interface{}, error) {
+func (ks *swBCCSPKeyStore) loadPrivateKey(alias string) (interface{}, error) {
 	path := ks.conf.getPathForAlias(alias, "sk")
 	defaultBCCSPLog.Debugf("Loading private key [%s] at [%s]...", alias, path)
 
@@ -110,7 +110,7 @@ func (ks *defaultBCCSPKeyStore) loadPrivateKey(alias string) (interface{}, error
 	return privateKey, nil
 }
 
-func (ks *defaultBCCSPKeyStore) storePublicKey(alias string, publicKey interface{}) error {
+func (ks *swBCCSPKeyStore) storePublicKey(alias string, publicKey interface{}) error {
 	rawKey, err := primitives.PublicKeyToPEM(publicKey, ks.pwd)
 	if err != nil {
 		defaultBCCSPLog.Errorf("Failed converting public key to PEM [%s]: [%s]", alias, err)
@@ -126,7 +126,7 @@ func (ks *defaultBCCSPKeyStore) storePublicKey(alias string, publicKey interface
 	return nil
 }
 
-func (ks *defaultBCCSPKeyStore) loadPublicKey(alias string) (interface{}, error) {
+func (ks *swBCCSPKeyStore) loadPublicKey(alias string) (interface{}, error) {
 	path := ks.conf.getPathForAlias(alias, "pk")
 	defaultBCCSPLog.Debugf("Loading public key [%s] at [%s]...", alias, path)
 
@@ -147,7 +147,7 @@ func (ks *defaultBCCSPKeyStore) loadPublicKey(alias string) (interface{}, error)
 	return privateKey, nil
 }
 
-func (ks *defaultBCCSPKeyStore) storeKey(alias string, key []byte) error {
+func (ks *swBCCSPKeyStore) storeKey(alias string, key []byte) error {
 	pem, err := primitives.AEStoEncryptedPEM(key, ks.pwd)
 	if err != nil {
 		defaultBCCSPLog.Errorf("Failed converting key to PEM [%s]: [%s]", alias, err)
@@ -163,7 +163,7 @@ func (ks *defaultBCCSPKeyStore) storeKey(alias string, key []byte) error {
 	return nil
 }
 
-func (ks *defaultBCCSPKeyStore) loadKey(alias string) ([]byte, error) {
+func (ks *swBCCSPKeyStore) loadKey(alias string) ([]byte, error) {
 	path := ks.conf.getPathForAlias(alias, "key")
 	defaultBCCSPLog.Debugf("Loading key [%s] at [%s]...", alias, path)
 
@@ -184,7 +184,7 @@ func (ks *defaultBCCSPKeyStore) loadKey(alias string) ([]byte, error) {
 	return key, nil
 }
 
-func (ks *defaultBCCSPKeyStore) close() error {
+func (ks *swBCCSPKeyStore) close() error {
 	defaultBCCSPLog.Debug("Closing keystore...")
 	defaultBCCSPLog.Debug("Closing keystore...done!")
 
@@ -192,7 +192,7 @@ func (ks *defaultBCCSPKeyStore) close() error {
 	return nil
 }
 
-func (ks *defaultBCCSPKeyStore) createKeyStoreIfNotExists() error {
+func (ks *swBCCSPKeyStore) createKeyStoreIfNotExists() error {
 	// Check keystore directory
 	ksPath := ks.conf.getKeyStorePath()
 	missing, err := utils.DirMissingOrEmpty(ksPath)
@@ -209,7 +209,7 @@ func (ks *defaultBCCSPKeyStore) createKeyStoreIfNotExists() error {
 	return nil
 }
 
-func (ks *defaultBCCSPKeyStore) createKeyStore() error {
+func (ks *swBCCSPKeyStore) createKeyStore() error {
 	// Create keystore directory root if it doesn't exist yet
 	ksPath := ks.conf.getKeyStorePath()
 	defaultBCCSPLog.Debugf("Creating Keystore at [%s]...", ksPath)
@@ -220,13 +220,13 @@ func (ks *defaultBCCSPKeyStore) createKeyStore() error {
 	return nil
 }
 
-func (ks *defaultBCCSPKeyStore) deleteKeyStore() error {
+func (ks *swBCCSPKeyStore) deleteKeyStore() error {
 	defaultBCCSPLog.Debugf("Removing KeyStore at [%s].", ks.conf.getKeyStorePath())
 
 	return os.RemoveAll(ks.conf.getKeyStorePath())
 }
 
-func (ks *defaultBCCSPKeyStore) openKeyStore() error {
+func (ks *swBCCSPKeyStore) openKeyStore() error {
 	if ks.isOpen {
 		return nil
 	}

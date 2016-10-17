@@ -5,7 +5,7 @@ import (
 	"errors"
 )
 
-type aesPrivateKey struct {
+type swAESPrivateKey struct {
 	k []byte
 	exportable bool
 }
@@ -13,7 +13,7 @@ type aesPrivateKey struct {
 
 // ToByte converts this key to its byte representation,
 // if this operation is allowed.
-func (k *aesPrivateKey) ToByte() (raw []byte, err error) {
+func (k *swAESPrivateKey) ToByte() (raw []byte, err error) {
 	if k.exportable {
 		return k.k, nil
 	}
@@ -22,25 +22,25 @@ func (k *aesPrivateKey) ToByte() (raw []byte, err error) {
 }
 
 // GetSKI returns the subject key identifier of this key.
-func (k *aesPrivateKey) GetSKI() (ski []byte) {
+func (k *swAESPrivateKey) GetSKI() (ski []byte) {
 	return primitives.Hash(k.k)
 }
 
 // Symmetric returns true if this key is a symmetric key,
 // false is this key is asymmetric
-func (k *aesPrivateKey) Symmetric() (bool) {
+func (k *swAESPrivateKey) Symmetric() (bool) {
 	return true
 }
 
 // Private returns true if this key is an asymmetric private key,
 // false otherwise.
-func (k *aesPrivateKey) Private() (bool) {
+func (k *swAESPrivateKey) Private() (bool) {
 	return true
 }
 
 // PublicKey returns the corresponding public key if this key
 // is an asymmetric private key. If this key is already public,
 // PublicKey returns this key itself.
-func (k *aesPrivateKey) PublicKey() (Key, error) {
+func (k *swAESPrivateKey) PublicKey() (Key, error) {
 	return nil, errors.New("Cannot call this method on a symmetric key.")
 }

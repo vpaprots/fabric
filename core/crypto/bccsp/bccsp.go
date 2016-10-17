@@ -72,19 +72,6 @@ type EncrypterOpts interface{}
 // DecrypterOpts contains options for decrypting with a CSP.
 type DecrypterOpts interface{}
 
-// CSPFactoryOpts contains options for instantiating CSPs.
-type CSPFactoryOpts interface {
-
-	// Provider returns the name of the provider
-	Provider() string
-
-	// Ephemeral returns true if the CSP has to be ephemeral, false otherwise
-	Ephemeral() bool
-
-	// Hardware returns true if the CSP has hardware-based, false otherwise
-	Hardware() bool
-}
-
 // BCCSP is the blockchain cryptographic service provider that offers
 // the implementation of cryptographic standards and algorithms.
 type BCCSP interface {
