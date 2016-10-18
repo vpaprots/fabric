@@ -33,36 +33,102 @@ sysctl vm.overcommit_memory=1
 ##################
 # Install Docker
 cd /tmp
-wget ftp://ftp.unicamp.br/pub/linuxpatch/s390x/redhat/rhel7.2/docker-1.10.1-rhel7.2-20160408.tar.gz
-tar -xvzf docker-1.10.1-rhel7.2-20160408.tar.gz
-cp docker-1.10.1-rhel7.2-20160408/docker /bin
-rm -rf docker docker-1.10.1-rhel7.2-20160408.tar.gz
+wget ftp://ftp.unicamp.br/pub/linuxpatch/s390x/redhat/rhel7.2/docker-1.11.2-rhel7.2-20160623.tar.gz
+tar -xvzf docker-1.11.2-rhel7.2-20160623.tar.gz
+cp -f docker-1.11.2-rhel7.2-20160623/docker* /bin
+rm -rf docker-1.11.2-rhel7.2-20160623 docker-1.11.2-rhel7.2-20160623.tar.gz
 
 #TODO: Install on boot
-nohup docker daemon -g /data/docker -H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock&
+nohup docker daemon -g /data/docker -H tcp://0.0.0.0:2375 -H unix:///var/run/docker.sock 2>&1 >/dev/null&
 
 ###################################
 # Crosscompile and install GOLANG
-cd $HOME
-git clone http://github.com/linux-on-ibm-z/go.git
-cd go
-git checkout release-branch.go1.6
+cd /tmp
+wget --quiet --no-check-certificate https://storage.googleapis.com/golang/go1.7.1.linux-s390x.tar.gz
+tar -xvf go1.7.1.linux-s390x.tar.gz
+apt-get install -y g++
+cd /opt
+git clone http://github.com/linux-on-ibm-z/go.git go
+cd go/src
+git checkout release-branch.go1.6-p256
+export GOROOT_BOOTSTRAP=/tmp/go
+./make.bash
+rm -rf go1.7.1.linux-s390x.tar.gz /tmp/go
+export GOROOT="/opt/go"
 
-cat > crosscompile.sh <<HEREDOC
-cd /tmp/home/go/src	
-yum install -y git wget tar gcc bzip2
-export GOROOT_BOOTSTRAP=/usr/local/go
-GOOS=linux GOARCH=s390x ./bootstrap.bash
-HEREDOC
+export PATH=/opt/go/bin:$PATH
 
-docker run --privileged --rm -ti -v $HOME:/tmp/home brunswickheads/openchain-peer /bin/bash /tmp/home/go/crosscompile.sh
+# ----------------------------------------------------------------
+# Install JDK 1.8
+# ----------------------------------------------------------------
+# This 'installation' is ridiculous. Except this is the best I can come up with. Sad
+# Also, Java is required for node.bin below. InstallAnywhere requirement.
+# See https://github.com/ibmruntimes/ci.docker/blob/master/ibmjava/8-sdk/s390x/ubuntu/Dockerfile
+JAVA_VERSION=1.8.0_sr3fp12
+ESUM_s390x="46766ac01bc2b7d2f3814b6b1561e2d06c7d92862192b313af6e2f77ce86d849"
+ESUM_ppc64le="6fb86f2188562a56d4f5621a272e2cab1ec3d61a13b80dec9dc958e9568d9892"
+eval ESUM=\$ESUM_$MACHINE
+BASE_URL="https://public.dhe.ibm.com/ibmdl/export/pub/systems/cloud/runtimes/java/meta/"
+YML_FILE="sdk/linux/$MACHINE/index.yml"
+wget -q -U UA_IBM_JAVA_Docker -O /tmp/index.yml $BASE_URL/$YML_FILE
+JAVA_URL=$(cat /tmp/index.yml | sed -n '/'$JAVA_VERSION'/{n;p}' | sed -n 's/\s*uri:\s//p' | tr -d '\r')
+wget -q -U UA_IBM_JAVA_Docker -O /tmp/ibm-java.bin $JAVA_URL
+echo "$ESUM  /tmp/ibm-java.bin" | sha256sum -c -
+echo "INSTALLER_UI=silent" > /tmp/response.properties
+echo "USER_INSTALL_DIR=/opt/ibm/java" >> /tmp/response.properties
+echo "LICENSE_ACCEPTED=TRUE" >> /tmp/response.properties
+mkdir -p /opt/ibm
+chmod +x /tmp/ibm-java.bin
+/tmp/ibm-java.bin -i silent -f /tmp/response.properties
+rm -f /tmp/response.properties
+rm -f /tmp/index.yml
+rm -f /tmp/ibm-java.bin
+ln -s /opt/ibm/java/jre/bin/* /usr/local/bin/ 
 
-export GOROOT_BOOTSTRAP=$HOME/go-linux-s390x-bootstrap
-cd $HOME/go/src
-./all.bash
-export PATH=$HOME/go/bin:$PATH
+# Install NodeJS
+# This 'installation' is ridiculous. Except this is the best I can come up with. Sad
+ESUM="9ff05558f6debd1f6d86cc1a0fd170cccb01b69d5cfd308faac57cd8246c14ba"
+NODE_URL="http://public.dhe.ibm.com/ibmdl/export/pub/systems/cloud/runtimes/nodejs/1.2.0.15/linux/s390x/ibm-1.2.0.15-node-v0.12.16-linux-s390x.bin"
+wget -O /tmp/node.bin $NODE_URL    
+echo "$ESUM  /tmp/node.bin" | sha256sum -c -
+echo "INSTALLER_UI=silent" > /tmp/response.properties
+echo "USER_INSTALL_DIR=/opt/ibm/node" >> /tmp/response.properties
+echo "LICENSE_ACCEPTED=TRUE" >> /tmp/response.properties
+mkdir -p /opt/ibm
+chmod +x /tmp/node.bin
+/tmp/node.bin -i silent -f /tmp/response.properties
+rm -f /tmp/response.properties /tmp/node.bin
 
-rm -rf $HOME/go-linux-s390x-bootstrap 
+# Install GRPC
+
+# ----------------------------------------------------------------
+# NOTE: For instructions, see https://github.com/google/protobuf
+#
+# ----------------------------------------------------------------
+
+# First install protoc
+cd /tmp
+git clone https://github.com/google/protobuf protobuf-3.0.2
+cd protobuf-3.0.2
+git checkout v3.0.2
+# missing attomic call
+git -c user.email="your@email.com" -c user.name="Your Name" cherry-pick fd1c289
+apt-get install -y autoconf automake libtool curl make g++ unzip
+apt-get install -y build-essential
+./autogen.sh
+# NOTE: By default, the package will be installed to /usr/local. However, on many platforms, /usr/local/lib is not part of LD_LIBRARY_PATH.
+# You can add it, but it may be easier to just install to /usr instead.
+#
+# To do this, invoke configure as follows:
+#
+# ./configure --prefix=/usr
+#
+#./configure
+./configure --prefix=/usr
+make
+make check
+make install
+export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
 ################
 #ROCKSDB BUILD
@@ -81,7 +147,7 @@ rm -rf /tmp/rocksdb
 
 ################
 # PIP
-yum install python-setuptools
+yum install -y python-setuptools
 curl "https://bootstrap.pypa.io/get-pip.py" -o "get-pip.py"
 python get-pip.py
 pip install --upgrade pip
@@ -103,11 +169,11 @@ cd ../..
 GRPC_PYTHON_BUILD_WITH_CYTHON=1 pip install .
 
 # updater-server, update-engine, and update-service-common dependencies (for running locally)
-pip install -I flask==0.10.1 python-dateutil==2.2 pytz==2014.3 pyyaml==3.10 couchdb==1.0 flask-cors==2.0.1 requests==2.4.3
+pip install -I flask==0.10.1 python-dateutil==2.2 pytz==2014.3 pyyaml==3.10 couchdb==1.0 flask-cors==2.0.1 requests==2.4.3 docker-compose==1.5.2
 cat >> ~/.bashrc <<HEREDOC
-      export PATH=$HOME/go/bin:$PATH
-      export GOROOT=$HOME/go
-      export GOPATH=$HOME/git
+export PATH=$HOME/go/bin:$PATH
+export GOROOT=$HOME/go
+export GOPATH=$HOME/git
 HEREDOC
 
 source ~/.bashrc
