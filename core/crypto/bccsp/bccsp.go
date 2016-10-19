@@ -5,9 +5,9 @@ import "crypto"
 // Key represents a key
 type Key interface {
 
-	// ToByte converts this key to its byte representation,
+	// Bytes converts this key to its byte representation,
 	// if this operation is allowed.
-	ToByte() ([]byte, error)
+	Bytes() ([]byte, error)
 
 	// GetSKI returns the subject key identifier of this key.
 	GetSKI() []byte
@@ -26,8 +26,8 @@ type Key interface {
 	PublicKey() (Key, error)
 }
 
-// GenKeyOpts contains options for key-generation with a CSP.
-type GenKeyOpts interface {
+// KeyGenOpts contains options for key-generation with a CSP.
+type KeyGenOpts interface {
 
 	// Algorithm returns an identifier for the algorithm to be used
 	// to generate a key.
@@ -38,8 +38,8 @@ type GenKeyOpts interface {
 	Ephemeral() bool
 }
 
-// DeriveKeyOpts contains options for key-derivation with a CSP.
-type DeriveKeyOpts interface {
+// KeyDerivOpts contains options for key-derivation with a CSP.
+type KeyDerivOpts interface {
 
 	// Algorithm returns an identifier for the algorithm to be used
 	// to derive a key.
@@ -50,8 +50,8 @@ type DeriveKeyOpts interface {
 	Ephemeral() bool
 }
 
-// ImportKeyOpts contains options for importing the raw material of a key with a CSP.
-type ImportKeyOpts interface{
+// KeyImportOpts contains options for importing the raw material of a key with a CSP.
+type KeyImportOpts interface{
 	// Algorithm returns an identifier for the algorithm to be used
 	// to import the raw material of a key.
 	Algorithm() string
@@ -76,20 +76,20 @@ type DecrypterOpts interface{}
 // the implementation of cryptographic standards and algorithms.
 type BCCSP interface {
 
-	// GenKey generates a key using opts.
-	GenKey(opts GenKeyOpts) (k Key, err error)
+	// KeyGen generates a key using opts.
+	KeyGen(opts KeyGenOpts) (k Key, err error)
 
-	// DeriveKey derives a key from k using opts.
+	// KeyDeriv derives a key from k using opts.
 	// The opts argument should be appropriate for the primitive used.
-	DeriveKey(k Key, opts DeriveKeyOpts) (dk Key, err error)
+	KeyDeriv(k Key, opts KeyDerivOpts) (dk Key, err error)
+
+	// KeyImport imports a key from its raw representation using opts.
+	// The opts argument should be appropriate for the primitive used.
+	KeyImport(raw []byte, opts KeyImportOpts) (k Key, err error)
 
 	// GetKey returns the key this CSP associates to
 	// the Subject Key Identifier ski.
 	GetKey(ski []byte) (k Key, err error)
-
-	// ImportKey imports a key from its raw representation using opts.
-	// The opts argument should be appropriate for the primitive used.
-	ImportKey(raw []byte, opts ImportKeyOpts) (k Key, err error)
 
 	// Sign signs digest using key k.
 	// The opts argument should be appropriate for the primitive used.

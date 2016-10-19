@@ -9,7 +9,7 @@ import (
 func TestCryptoSigner_Init(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&ECDSAGenKeyOpts{true})
+	k, err := csp.KeyGen(&ECDSAGenKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
@@ -24,7 +24,7 @@ func TestCryptoSigner_Init(t *testing.T) {
 func TestCryptoSigner_Public(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&ECDSAGenKeyOpts{true})
+	k, err := csp.KeyGen(&ECDSAGenKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
@@ -44,7 +44,7 @@ func TestCryptoSigner_Public(t *testing.T) {
 func TestCryptoSigner_Sign(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&ECDSAGenKeyOpts{true})
+	k, err := csp.KeyGen(&ECDSAGenKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}

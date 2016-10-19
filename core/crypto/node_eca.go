@@ -347,7 +347,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (bccsp.Key,
 		return nil, nil, nil, err
 	}
 
-	signPriv, err := csp.GenKey(&bccsp.ECDSAGenKeyOpts{Temporary: false})
+	signPriv, err := csp.KeyGen(&bccsp.ECDSAGenKeyOpts{Temporary: false})
 	if err != nil {
 		node.Errorf("Failed generating ECDSA key [%s].", err.Error())
 
@@ -361,7 +361,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (bccsp.Key,
 		return nil, nil, nil, err
 	}
 
-	signPubKeyRaw, err := signPubKey.ToByte()
+	signPubKeyRaw, err := signPubKey.Bytes()
 	if err != nil {
 		node.Errorf("Failed mashalling ECDSA key [%s].", err.Error())
 

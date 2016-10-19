@@ -11,9 +11,9 @@ type swAESPrivateKey struct {
 }
 
 
-// ToByte converts this key to its byte representation,
+// Bytes converts this key to its byte representation,
 // if this operation is allowed.
-func (k *swAESPrivateKey) ToByte() (raw []byte, err error) {
+func (k *swAESPrivateKey) Bytes() (raw []byte, err error) {
 	if k.exportable {
 		return k.k, nil
 	}

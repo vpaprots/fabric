@@ -316,7 +316,7 @@ func (ca *CA) createCAKeyPair(name string) bccsp.Key {
 		caLogger.Panicf("Failed getting BCCSP [%s]", err)
 	}
 
-	key, err := csp.GenKey(&bccsp.ECDSAGenKeyOpts{false})
+	key, err := csp.KeyGen(&bccsp.ECDSAGenKeyOpts{false})
 	if err != nil {
 		caLogger.Panicf("Failed generating CA key [%s]", err)
 	}
@@ -348,7 +348,7 @@ func (ca *CA) readCAPrivateKey(name string) (bccsp.Key, error) {
 func (ca *CA) createCACertificate(name string, pub bccsp.Key) []byte {
 	caLogger.Debug("Creating CA certificate.")
 
-	raw, err := pub.ToByte()
+	raw, err := pub.Bytes()
 	if err != nil {
 		caLogger.Panic("Failed marshalling public key")
 	}
