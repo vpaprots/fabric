@@ -33,7 +33,7 @@ func (s *CryptoSigner) Init(csp BCCSP, key Key) error {
 		return fmt.Errorf("Failed getting public key [%s]", err)
 	}
 
-	raw, err := pub.ToByte()
+	raw, err := pub.Bytes()
 	if err != nil {
 		return fmt.Errorf("Failed marshalling public key [%s]", err)
 	}

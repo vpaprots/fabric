@@ -164,15 +164,15 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 		return nil, err
 	}
 
-	TCertOwnerEncryptKey, err := csp.DeriveKey(client.tCertOwnerKDFKey, &bccsp.HMACTruncated256AESDeriveKeyOpts{Temporary: true, Arg: []byte{1}})
+	TCertOwnerEncryptKey, err := csp.KeyDeriv(client.tCertOwnerKDFKey, &bccsp.HMACTruncated256AESDeriveKeyOpts{Temporary: true, Arg: []byte{1}})
 	if err != nil {
 		return nil, fmt.Errorf("Failed deriving TCertOwnerEncryptKey [%s]", err)
 	}
-	ExpansionKeyCSP, err := csp.DeriveKey(client.tCertOwnerKDFKey, &bccsp.HMACDeriveKeyOpts{Temporary: true, Arg: []byte{2}})
+	ExpansionKeyCSP, err := csp.KeyDeriv(client.tCertOwnerKDFKey, &bccsp.HMACDeriveKeyOpts{Temporary: true, Arg: []byte{2}})
 	if err != nil {
 		return nil, fmt.Errorf("Failed deriving ExpansionKey [%s]", err)
 	}
-	ExpansionKey, err := ExpansionKeyCSP.ToByte()
+	ExpansionKey, err := ExpansionKeyCSP.Bytes()
 	if err != nil {
 		return nil, fmt.Errorf("Failed marshalling ExpansionKey [%s]", err)
 	}
@@ -204,7 +204,7 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 			return nil, err
 		}
 
-		tempSK, err := csp.DeriveKey(client.enrollPrivKey, &bccsp.ECDSAReRandKeyOpts{Temporary: true, Expansion: ExpansionValue})
+		tempSK, err := csp.KeyDeriv(client.enrollPrivKey, &bccsp.ECDSAReRandKeyOpts{Temporary: true, Expansion: ExpansionValue})
 		if err != nil {
 			client.Errorf("Failed getting BCCSP: [%s].", err)
 
@@ -236,15 +236,15 @@ func (client *clientImpl) getTCertFromDER(certBlk *TCertDBBlock) (certBlock *TCe
 
 		return nil, err
 	}
-	TCertOwnerEncryptKey, err := csp.DeriveKey(client.tCertOwnerKDFKey, &bccsp.HMACTruncated256AESDeriveKeyOpts{Temporary: true, Arg: []byte{1}})
+	TCertOwnerEncryptKey, err := csp.KeyDeriv(client.tCertOwnerKDFKey, &bccsp.HMACTruncated256AESDeriveKeyOpts{Temporary: true, Arg: []byte{1}})
 	if err != nil {
 		return nil, fmt.Errorf("Failed deriving TCertOwnerEncryptKey [%s]", err)
 	}
-	ExpansionKeyCSP, err := csp.DeriveKey(client.tCertOwnerKDFKey, &bccsp.HMACDeriveKeyOpts{Temporary: true, Arg: []byte{2}})
+	ExpansionKeyCSP, err := csp.KeyDeriv(client.tCertOwnerKDFKey, &bccsp.HMACDeriveKeyOpts{Temporary: true, Arg: []byte{2}})
 	if err != nil {
 		return nil, fmt.Errorf("Failed deriving ExpansionKey [%s]", err)
 	}
-	ExpansionKey, err := ExpansionKeyCSP.ToByte()
+	ExpansionKey, err := ExpansionKeyCSP.Bytes()
 	if err != nil {
 		return nil, fmt.Errorf("Failed marshalling ExpansionKey [%s]", err)
 	}
@@ -302,7 +302,7 @@ func (client *clientImpl) getTCertFromDER(certBlk *TCertDBBlock) (certBlock *TCe
 	// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
 	// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
 
-	tempSK, err := csp.DeriveKey(client.enrollPrivKey, &bccsp.ECDSAReRandKeyOpts{false, ExpansionValue})
+	tempSK, err := csp.KeyDeriv(client.enrollPrivKey, &bccsp.ECDSAReRandKeyOpts{false, ExpansionValue})
 	if err != nil {
 		client.Errorf("Failed getting BCCSP: [%s].", err)
 
@@ -354,7 +354,7 @@ func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes []string,
 		//	return errors.New("Failed reciving kdf key from TCA. The keys are different.")
 		//}
 	} else {
-		kdfKey, err := csp.ImportKey(TCertOwnerKDFKey, &bccsp.HMACImportKeyOpts{Temporary: false})
+		kdfKey, err := csp.KeyImport(TCertOwnerKDFKey, &bccsp.HMACImportKeyOpts{Temporary: false})
 		if err != nil {
 			return fmt.Errorf("Failed importing kdf key [%s]", err)
 		}
@@ -371,15 +371,15 @@ func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes []string,
 
 	// Validate the Certificates obtained
 
-	TCertOwnerEncryptKey, err := csp.DeriveKey(client.tCertOwnerKDFKey, &bccsp.HMACTruncated256AESDeriveKeyOpts{Temporary: true, Arg: []byte{1}})
+	TCertOwnerEncryptKey, err := csp.KeyDeriv(client.tCertOwnerKDFKey, &bccsp.HMACTruncated256AESDeriveKeyOpts{Temporary: true, Arg: []byte{1}})
 	if err != nil {
 		return fmt.Errorf("Failed deriving TCertOwnerEncryptKey [%s]", err)
 	}
-	ExpansionKeyCSP, err := csp.DeriveKey(client.tCertOwnerKDFKey, &bccsp.HMACDeriveKeyOpts{Temporary: true, Arg: []byte{2}})
+	ExpansionKeyCSP, err := csp.KeyDeriv(client.tCertOwnerKDFKey, &bccsp.HMACDeriveKeyOpts{Temporary: true, Arg: []byte{2}})
 	if err != nil {
 		return fmt.Errorf("Failed deriving ExpansionKey [%s]", err)
 	}
-	ExpansionKey, err := ExpansionKeyCSP.ToByte()
+	ExpansionKey, err := ExpansionKeyCSP.Bytes()
 	if err != nil {
 		return fmt.Errorf("Failed marshalling ExpansionKey [%s]", err)
 	}
@@ -438,7 +438,7 @@ func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes []string,
 		// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
 
 		// Compute temporary secret key
-		tempSK, err := csp.DeriveKey(client.enrollPrivKey, &bccsp.ECDSAReRandKeyOpts{false, ExpansionValue})
+		tempSK, err := csp.KeyDeriv(client.enrollPrivKey, &bccsp.ECDSAReRandKeyOpts{false, ExpansionValue})
 		if err != nil {
 			client.Errorf("Failed getting BCCSP: [%s].", err)
 

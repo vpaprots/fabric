@@ -26,8 +26,8 @@ type SoftwareBasedBCCSP struct {
 	ks *swBCCSPKeyStore
 }
 
-// GenKey generates a key using opts.
-func (csp *SoftwareBasedBCCSP) GenKey(opts GenKeyOpts) (k Key, err error) {
+// KeyGen generates a key using opts.
+func (csp *SoftwareBasedBCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 	// Validate arguments
 	if opts == nil {
 		return nil, errors.New("Invalid argument. Nil.")
@@ -78,9 +78,9 @@ func (csp *SoftwareBasedBCCSP) GenKey(opts GenKeyOpts) (k Key, err error) {
 	return
 }
 
-// DeriveKey derives a key from k using opts.
+// KeyDeriv derives a key from k using opts.
 // The opts argument should be appropriate for the primitive used.
-func (csp *SoftwareBasedBCCSP) DeriveKey(k Key, opts DeriveKeyOpts) (dk Key, err error) {
+func (csp *SoftwareBasedBCCSP) KeyDeriv(k Key, opts KeyDerivOpts) (dk Key, err error) {
 	// Validate arguments
 	if k == nil {
 		return nil, errors.New("Invalid key. Nil.")
@@ -203,47 +203,9 @@ func (csp *SoftwareBasedBCCSP) DeriveKey(k Key, opts DeriveKeyOpts) (dk Key, err
 	}
 }
 
-// GetKey returns the key this CSP associates to
-// the Subject Key Identifier ski.
-func (csp *SoftwareBasedBCCSP) GetKey(ski []byte) (k Key, err error) {
-	// Validate arguments
-	if len(ski) == 0 {
-		return nil, errors.New("Invalid ski. Zero length.")
-	}
-
-
-	suffix := csp.ks.getSuffix(hex.EncodeToString(ski))
-
-	switch suffix {
-	case "key":
-		// Load the key
-		key, err := csp.ks.loadKey(hex.EncodeToString(ski))
-		if err != nil {
-			return nil, fmt.Errorf("Failed loading key [%x] [%s]", ski, err)
-		}
-
-		return &swAESPrivateKey{key, false}, nil
-	case "sk":
-		// Load the private key
-		key, err := csp.ks.loadPrivateKey(hex.EncodeToString(ski))
-		if err != nil {
-			return nil, fmt.Errorf("Failed loading key [%x] [%s]", ski, err)
-		}
-
-		switch key.(type) {
-		case *ecdsa.PrivateKey:
-			return &swECDSAPrivateKey{key.(*ecdsa.PrivateKey)}, nil
-		default:
-			return nil, errors.New("Key type not recognized")
-		}
-	default:
-		return nil, errors.New("Key not recognized")
-	}
-}
-
-// ImportKey imports a key from its raw representation using opts.
+// KeyImport imports a key from its raw representation using opts.
 // The opts argument should be appropriate for the primitive used.
-func (csp *SoftwareBasedBCCSP) ImportKey(raw []byte, opts ImportKeyOpts) (k Key, err error) {
+func (csp *SoftwareBasedBCCSP) KeyImport(raw []byte, opts KeyImportOpts) (k Key, err error) {
 	// Validate arguments
 	if len(raw) == 0 {
 		return nil, errors.New("Invalid raw. Zero length.")
@@ -287,6 +249,44 @@ func (csp *SoftwareBasedBCCSP) ImportKey(raw []byte, opts ImportKeyOpts) (k Key,
 		return aesK, nil
 	default:
 		return nil, errors.New("Import Key Options not recognized")
+	}
+}
+
+// GetKey returns the key this CSP associates to
+// the Subject Key Identifier ski.
+func (csp *SoftwareBasedBCCSP) GetKey(ski []byte) (k Key, err error) {
+	// Validate arguments
+	if len(ski) == 0 {
+		return nil, errors.New("Invalid ski. Zero length.")
+	}
+
+
+	suffix := csp.ks.getSuffix(hex.EncodeToString(ski))
+
+	switch suffix {
+	case "key":
+		// Load the key
+		key, err := csp.ks.loadKey(hex.EncodeToString(ski))
+		if err != nil {
+			return nil, fmt.Errorf("Failed loading key [%x] [%s]", ski, err)
+		}
+
+		return &swAESPrivateKey{key, false}, nil
+	case "sk":
+		// Load the private key
+		key, err := csp.ks.loadPrivateKey(hex.EncodeToString(ski))
+		if err != nil {
+			return nil, fmt.Errorf("Failed loading key [%x] [%s]", ski, err)
+		}
+
+		switch key.(type) {
+		case *ecdsa.PrivateKey:
+			return &swECDSAPrivateKey{key.(*ecdsa.PrivateKey)}, nil
+		default:
+			return nil, errors.New("Key type not recognized")
+		}
+	default:
+		return nil, errors.New("Key not recognized")
 	}
 }
 

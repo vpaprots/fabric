@@ -22,7 +22,7 @@ func getDefaultBCCSP(t *testing.T) BCCSP {
 func TestDefaultBCCSP_GenKey(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&ECDSAGenKeyOpts{true})
+	k, err := csp.KeyGen(&ECDSAGenKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
@@ -40,7 +40,7 @@ func TestDefaultBCCSP_GenKey(t *testing.T) {
 func TestEcdsaPrivateKey_GetSKI(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&ECDSAGenKeyOpts{true})
+	k, err := csp.KeyGen(&ECDSAGenKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
@@ -54,7 +54,7 @@ func TestEcdsaPrivateKey_GetSKI(t *testing.T) {
 func TestDefaultBCCSP_GenKey2(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&ECDSAGenKeyOpts{false})
+	k, err := csp.KeyGen(&ECDSAGenKeyOpts{false})
 	if err != nil {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
@@ -72,7 +72,7 @@ func TestDefaultBCCSP_GenKey2(t *testing.T) {
 func TestDefaultBCCSP_GetKey(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&ECDSAGenKeyOpts{false})
+	k, err := csp.KeyGen(&ECDSAGenKeyOpts{false})
 	if err != nil {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
@@ -100,7 +100,7 @@ func TestDefaultBCCSP_GetKey(t *testing.T) {
 func TestEcdsaPrivateKey_PublicKey(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&ECDSAGenKeyOpts{true})
+	k, err := csp.KeyGen(&ECDSAGenKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
@@ -123,7 +123,7 @@ func TestEcdsaPrivateKey_PublicKey(t *testing.T) {
 func TestEcdsaPublicKey_ToByte(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&ECDSAGenKeyOpts{true})
+	k, err := csp.KeyGen(&ECDSAGenKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
@@ -133,7 +133,7 @@ func TestEcdsaPublicKey_ToByte(t *testing.T) {
 		t.Fatalf("Failed getting public key from private ECDSA key [%s]", err)
 	}
 
-	raw, err := pk.ToByte()
+	raw, err := pk.Bytes()
 	if err != nil {
 		t.Fatalf("Failed marshalling ECDSA public key [%s]", err)
 	}
@@ -145,7 +145,7 @@ func TestEcdsaPublicKey_ToByte(t *testing.T) {
 func TestEcdsaPublicKey_GetSKI(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&ECDSAGenKeyOpts{true})
+	k, err := csp.KeyGen(&ECDSAGenKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
@@ -164,12 +164,12 @@ func TestEcdsaPublicKey_GetSKI(t *testing.T) {
 func TestDefaultBCCSP_DeriveKey(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&ECDSAGenKeyOpts{false})
+	k, err := csp.KeyGen(&ECDSAGenKeyOpts{false})
 	if err != nil {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
 
-	reRandomizedKey, err := csp.DeriveKey(k, &ECDSAReRandKeyOpts{false, []byte{1}})
+	reRandomizedKey, err := csp.KeyDeriv(k, &ECDSAReRandKeyOpts{false, []byte{1}})
 	if err != nil {
 		t.Fatalf("Failed re-randomizing ECDSA key [%s]", err)
 	}
@@ -187,7 +187,7 @@ func TestDefaultBCCSP_DeriveKey(t *testing.T) {
 func TestDefaultBCCSP_Sign(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&ECDSAGenKeyOpts{true})
+	k, err := csp.KeyGen(&ECDSAGenKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
@@ -205,7 +205,7 @@ func TestDefaultBCCSP_Sign(t *testing.T) {
 func TestDefaultBCCSP_Verify(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&ECDSAGenKeyOpts{true})
+	k, err := csp.KeyGen(&ECDSAGenKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
@@ -228,12 +228,12 @@ func TestDefaultBCCSP_Verify(t *testing.T) {
 func TestDefaultBCCSP_DeriveKey2(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&ECDSAGenKeyOpts{false})
+	k, err := csp.KeyGen(&ECDSAGenKeyOpts{false})
 	if err != nil {
 		t.Fatalf("Failed generating ECDSA key [%s]", err)
 	}
 
-	reRandomizedKey, err := csp.DeriveKey(k, &ECDSAReRandKeyOpts{false, []byte{1}})
+	reRandomizedKey, err := csp.KeyDeriv(k, &ECDSAReRandKeyOpts{false, []byte{1}})
 	if err != nil {
 		t.Fatalf("Failed re-randomizing ECDSA key [%s]", err)
 	}
@@ -256,7 +256,7 @@ func TestDefaultBCCSP_DeriveKey2(t *testing.T) {
 func TestDefaultBCCSP_GenKey3(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&AES256GenKeyOpts{false})
+	k, err := csp.KeyGen(&AES256GenKeyOpts{false})
 	if err != nil {
 		t.Fatalf("Failed generating AES_256 key [%s]", err)
 	}
@@ -274,7 +274,7 @@ func TestDefaultBCCSP_GenKey3(t *testing.T) {
 func TestDefaultBCCSP_Encrypt(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&AES256GenKeyOpts{true})
+	k, err := csp.KeyGen(&AES256GenKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed generating AES_256 key [%s]", err)
 	}
@@ -291,7 +291,7 @@ func TestDefaultBCCSP_Encrypt(t *testing.T) {
 func TestDefaultBCCSP_Decrypt(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&AES256GenKeyOpts{true})
+	k, err := csp.KeyGen(&AES256GenKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed generating AES_256 key [%s]", err)
 	}
@@ -319,12 +319,12 @@ func TestDefaultBCCSP_Decrypt(t *testing.T) {
 func TestDefaultBCCSP_DeriveKey3(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&AES256GenKeyOpts{true})
+	k, err := csp.KeyGen(&AES256GenKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed generating AES_256 key [%s]", err)
 	}
 
-	hmcaedKey, err := csp.DeriveKey(k, &HMACTruncated256AESDeriveKeyOpts{false, []byte{1}})
+	hmcaedKey, err := csp.KeyDeriv(k, &HMACTruncated256AESDeriveKeyOpts{false, []byte{1}})
 	if err != nil {
 		t.Fatalf("Failed HMACing AES_256 key [%s]", err)
 	}
@@ -337,7 +337,7 @@ func TestDefaultBCCSP_DeriveKey3(t *testing.T) {
 	if !hmcaedKey.Symmetric() {
 		t.Fatal("Failed HMACing AES_256 key. HMACed Key should be asymmetric")
 	}
-	raw, err := hmcaedKey.ToByte()
+	raw, err := hmcaedKey.Bytes()
 	if err == nil {
 		t.Fatal("Failed marshalling to bytes. Operation must be forbidden")
 	}
@@ -370,12 +370,12 @@ func TestDefaultBCCSP_DeriveKey3(t *testing.T) {
 func TestDefaultBCCSP_DeriveKey4(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&AES256GenKeyOpts{true})
+	k, err := csp.KeyGen(&AES256GenKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed generating AES_256 key [%s]", err)
 	}
 
-	hmcaedKey, err := csp.DeriveKey(k, &HMACDeriveKeyOpts{false, []byte{1}})
+	hmcaedKey, err := csp.KeyDeriv(k, &HMACDeriveKeyOpts{false, []byte{1}})
 
 	if err != nil {
 		t.Fatalf("Failed HMACing AES_256 key [%s]", err)
@@ -389,7 +389,7 @@ func TestDefaultBCCSP_DeriveKey4(t *testing.T) {
 	if !hmcaedKey.Symmetric() {
 		t.Fatal("Failed HMACing AES_256 key. HMACed Key should be asymmetric")
 	}
-	raw, err := hmcaedKey.ToByte()
+	raw, err := hmcaedKey.Bytes()
 	if err != nil {
 		t.Fatalf("Failed marshalling to bytes [%s]", err)
 	}
@@ -406,7 +406,7 @@ func TestDefaultBCCSP_ImportKey(t *testing.T) {
 		t.Fatalf("Failed generating AES key [%s]", err)
 	}
 
-	k, err := csp.ImportKey(raw, &AES256ImportKeyOpts{true})
+	k, err := csp.KeyImport(raw, &AES256ImportKeyOpts{true})
 	if err != nil {
 		t.Fatalf("Failed importing AES_256 key [%s]", err)
 	}
@@ -419,7 +419,7 @@ func TestDefaultBCCSP_ImportKey(t *testing.T) {
 	if !k.Symmetric() {
 		t.Fatal("Failed HMACing AES_256 key. Imported Key should be asymmetric")
 	}
-	raw, err = k.ToByte()
+	raw, err = k.Bytes()
 	if err == nil {
 		t.Fatal("Failed marshalling to bytes. Marshalling must fail.")
 	}
@@ -451,12 +451,12 @@ func TestDefaultBCCSP_ImportKey(t *testing.T) {
 func TestDefaultBCCSP_ImportKey2(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	_, err := csp.ImportKey(nil, &AES256ImportKeyOpts{true})
+	_, err := csp.KeyImport(nil, &AES256ImportKeyOpts{true})
 	if err == nil {
 		t.Fatal("Failed importing key. Must fail on importing nil key")
 	}
 
-	_, err = csp.ImportKey([]byte{1}, &AES256ImportKeyOpts{true})
+	_, err = csp.KeyImport([]byte{1}, &AES256ImportKeyOpts{true})
 	if err == nil {
 		t.Fatal("Failed importing key. Must fail on importing a key with an invalid length")
 	}
@@ -465,7 +465,7 @@ func TestDefaultBCCSP_ImportKey2(t *testing.T) {
 func TestDefaultBCCSP_GetKey2(t *testing.T) {
 	csp := getDefaultBCCSP(t)
 
-	k, err := csp.GenKey(&AES256GenKeyOpts{false})
+	k, err := csp.KeyGen(&AES256GenKeyOpts{false})
 	if err != nil {
 		t.Fatalf("Failed generating AES_256 key [%s]", err)
 	}

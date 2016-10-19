@@ -14,7 +14,7 @@ type swECDSAPrivateKey struct {
 
 // ToByte converts this key to its byte representation,
 // if this operation is allowed.
-func (k *swECDSAPrivateKey) ToByte() (raw []byte, err error) {
+func (k *swECDSAPrivateKey) Bytes() (raw []byte, err error) {
 	return
 }
 
@@ -53,7 +53,7 @@ type swECDSAPublicKey struct {
 
 // ToByte converts this key to its byte representation,
 // if this operation is allowed.
-func (k *swECDSAPublicKey) ToByte() (raw []byte, err error) {
+func (k *swECDSAPublicKey) Bytes() (raw []byte, err error) {
 	raw, err = x509.MarshalPKIXPublicKey(k.k)
 	if err != nil {
 		return nil, fmt.Errorf("Failed marshalling key [%s]", err)
