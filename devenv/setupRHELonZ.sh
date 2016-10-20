@@ -81,7 +81,7 @@ chmod +x /tmp/ibm-java.bin
 rm -f /tmp/response.properties
 rm -f /tmp/index.yml
 rm -f /tmp/ibm-java.bin
-ln -s /opt/ibm/java/jre/bin/* /usr/local/bin/ 
+export PATH=/opt/ibm/java/jre/bin:$PATH
 
 # Install NodeJS
 # This 'installation' is ridiculous. Except this is the best I can come up with. Sad
@@ -96,6 +96,7 @@ mkdir -p /opt/ibm
 chmod +x /tmp/node.bin
 /tmp/node.bin -i silent -f /tmp/response.properties
 rm -f /tmp/response.properties /tmp/node.bin
+export PATH=/opt/ibm/node/bin:$PATH
 
 # Install GRPC
 
