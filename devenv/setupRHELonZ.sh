@@ -170,7 +170,7 @@ GRPC_PYTHON_BUILD_WITH_CYTHON=1 pip install .
 pip install -I flask==0.10.1 python-dateutil==2.2 pytz==2014.3 pyyaml==3.10 couchdb==1.0 flask-cors==2.0.1 requests==2.4.3 docker-compose==1.5.2
 cat >> ~/.bashrc <<HEREDOC
 export PATH=$PATH
-export GOROOT=$HOME/go
+export GOROOT=$GOROOT
 export GOPATH=$HOME/git
 HEREDOC
 
