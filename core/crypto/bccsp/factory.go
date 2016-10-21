@@ -86,7 +86,7 @@ func initFactoriesMap() error {
 }
 
 func createDefaultBCCSP() (BCCSP, error) {
-	defaultBCCSPFactoryName := viper.GetString("bccsp.default")
+	defaultBCCSPFactoryName := viper.GetString("security.bccsp.default")
 	if defaultBCCSPFactoryName == "" {
 		defaultBCCSPFactoryName = SOFTWARE_BASED_FACTORY_NAME
 	}
