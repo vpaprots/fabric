@@ -75,7 +75,7 @@ func (csp *SoftwareBasedBCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 	default:
 		return nil, fmt.Errorf("Algorithm not recognized [%s]", opts.Algorithm())
 	}
-	return
+	// return     // unreachable with current keytypes [linter]
 }
 
 // KeyDeriv derives a key from k using opts.

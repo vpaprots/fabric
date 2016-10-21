@@ -14,12 +14,12 @@ import (
 )
 
 var (
-	defaultBCCSPLog = logging.MustGetLogger("bccsp_default")
+	p11BCCSPLog = logging.MustGetLogger("bccsp_default")
 )
 
 
 
-// P11BCCSP is the software-based implementation of the BCCSP.
+// P11BCCSP is the PKCS11-based implementation of the BCCSP.
 // It is based on code used in the primitives package.
 // It can be configured via vipe.
 type P11BCCSP struct {
@@ -75,7 +75,7 @@ func (csp *P11BCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 	default:
 		return nil, fmt.Errorf("Algorithm not recognized [%s]", opts.Algorithm())
 	}
-	return
+	// return // no other options available [linter]
 }
 
 // KeyDeriv derives a key from k using opts.
