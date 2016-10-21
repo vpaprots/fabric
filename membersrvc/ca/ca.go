@@ -316,7 +316,7 @@ func (ca *CA) createCAKeyPair(name string) bccsp.Key {
 		caLogger.Panicf("Failed getting BCCSP [%s]", err)
 	}
 
-	key, err := csp.KeyGen(&bccsp.ECDSAGenKeyOpts{false})
+	key, err := csp.KeyGen(&bccsp.ECDSAGenKeyOpts{Temporary: false})
 	if err != nil {
 		caLogger.Panicf("Failed generating CA key [%s]", err)
 	}
