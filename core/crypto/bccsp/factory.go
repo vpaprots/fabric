@@ -79,8 +79,12 @@ func initFactoriesMap() error {
 	factories = make(map[string]Factory)
 
 	// Software-Based BCCSP
-	f := &SoftwareBasedBCCSPFactory{}
-	factories[f.Name()] = f
+	sw := &SoftwareBasedBCCSPFactory{}
+	factories[sw.Name()] = sw
+
+	// PKCS11-Based BCCSP
+	hsm := &P11BCCSPFactory{}
+	factories[hsm.Name()] = hsm
 
 	return nil
 }

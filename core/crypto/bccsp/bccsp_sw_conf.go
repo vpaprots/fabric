@@ -15,12 +15,12 @@ type swBCCSPConfiguration struct {
 }
 
 func (conf *swBCCSPConfiguration) init() error {
-	conf.configurationPathProperty = "security.bccsp.default.keyStorePath"
+	conf.configurationPathProperty = "security.bccsp.keyStorePath"
 
 	// Check mandatory fields
 	var rootPath string
 	if err := conf.checkProperty(conf.configurationPathProperty); err != nil {
-		defaultBCCSPLog.Warning("'security.bccsp.default.keyStorePath' not set. Using temp folder.")
+		defaultBCCSPLog.Warning("'security.bccsp.keyStorePath' not set. Using temp folder.")
 		rootPath = os.TempDir()
 	} else {
 		rootPath = viper.GetString(conf.configurationPathProperty)

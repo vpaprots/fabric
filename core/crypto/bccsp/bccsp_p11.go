@@ -10,7 +10,8 @@ import (
 	"github.com/op/go-logging"
 	"encoding/hex"
 	"math/big"
-	"os"
+//	"os"
+	"github.com/spf13/viper"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 
 	"github.com/pkcs11"
@@ -20,9 +21,8 @@ import (
 )
 
 var (
-	p11BCCSPLog = logging.MustGetLogger("bccsp_default")
+	p11BCCSPLog = logging.MustGetLogger("bccsp_p11")
 )
-
 
 
 // P11BCCSP is the PKCS11-based implementation of the BCCSP.
@@ -34,8 +34,6 @@ type P11BCCSP struct {
 
 
 //-----  tvi's P11 stuff, redacted  ------------------------------------------
-var SO_PATH_DEFAULT = "/usr/local/lib64/pkcs11/libopencryptoki.so"
-
 // sha256(0 bits)
 // placeholder, replaced after key generation
 const defaultSKI = "\xe3\xb0\xc4\x42\x98\xfc\x1c\x14\x9a\xfb\xf4\xc8\x99\x6f\xb9\x24\x27\xae\x41\xe4\x64\x9b\x93\x4c\xa4\x95\x99\x1b\x78\x52\xb8\x55"
@@ -69,9 +67,9 @@ func algconst2oid (alg int) (oid []byte) {
 
 //--------------------------------------
 func loadlib() *pkcs11.Ctx {
-        lib := SO_PATH_DEFAULT
-        if x := os.Getenv("PKCS11LIB"); x != "" {
-                lib = x
+	var lib = viper.GetString("security.bccsp.pkcs11.library")
+        if lib == "" {
+		log.Fatal("P11: no library default\n")
         }
 
         ps := pkcs11.New(lib)
@@ -96,10 +94,15 @@ func generate_pkcs11() (pkcs11.ObjectHandle, pkcs11.ObjectHandle, error) {
 	var id uint64 = next_id_ctr()
 	var ec_param_oid = algconst2oid(0)
 
-	var publabel = fmt.Sprintf("BCPUB%010u", id)
-	var prvlabel = fmt.Sprintf("BCPRV%010u", id)
+	var publabel = fmt.Sprintf("BCPUB%010d", id)
+	var prvlabel = fmt.Sprintf("BCPRV%010d", id)
 
-	p11lib.Login(session, pkcs11.CKU_USER, "31419265")
+	var pin = viper.GetString("security.bccsp.pkcs11.pin")
+        if pin == "" {
+		log.Fatal("P11: no PIN set\n")
+        }
+
+	p11lib.Login(session, pkcs11.CKU_USER, pin)
 	defer p11lib.Logout(session)
 
         pubkey_t := []*pkcs11.Attribute{
@@ -110,9 +113,9 @@ func generate_pkcs11() (pkcs11.ObjectHandle, pkcs11.ObjectHandle, error) {
                 pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, ec_param_oid),
 
                 pkcs11.NewAttribute(pkcs11.CKA_ID,    publabel),
-                pkcs11.NewAttribute(pkcs11.CKA_LABEL, publabel),
-                pkcs11.NewAttribute(pkcs11.CKA_HASH_OF_SUBJECT_PUBLIC_KEY,
-                                    defaultSKI),
+//                pkcs11.NewAttribute(pkcs11.CKA_LABEL, publabel),
+//                pkcs11.NewAttribute(pkcs11.CKA_HASH_OF_SUBJECT_PUBLIC_KEY,
+//                                    defaultSKI),
         }
 
         prvkey_t := []*pkcs11.Attribute{
@@ -123,9 +126,9 @@ func generate_pkcs11() (pkcs11.ObjectHandle, pkcs11.ObjectHandle, error) {
                 pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
 
                 pkcs11.NewAttribute(pkcs11.CKA_ID,    prvlabel),
-                pkcs11.NewAttribute(pkcs11.CKA_LABEL, prvlabel),
-                pkcs11.NewAttribute(pkcs11.CKA_HASH_OF_SUBJECT_PUBLIC_KEY,
-                                    defaultSKI),
+//                pkcs11.NewAttribute(pkcs11.CKA_LABEL, prvlabel),
+//                pkcs11.NewAttribute(pkcs11.CKA_HASH_OF_SUBJECT_PUBLIC_KEY,
+//                                    defaultSKI),
         }
 
         pub, priv, err := p11lib.GenerateKeyPair(session,
