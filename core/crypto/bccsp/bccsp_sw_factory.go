@@ -27,7 +27,7 @@ func (f *SoftwareBasedBCCSPFactory) Get(opts FactoryOpts) (BCCSP, error) {
 	}
 
 	if opts.FactoryName() != f.Name() {
-		return nil, fmt.Errorf("Invalid Provider Name [%s]. This is [%d]", opts.FactoryName(), f.Name())
+		return nil, fmt.Errorf("Invalid Provider Name [%s]. This is [%s]", opts.FactoryName(), f.Name())
 	}
 
 	if !opts.Ephemeral() {

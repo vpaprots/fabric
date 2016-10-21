@@ -302,7 +302,7 @@ func (client *clientImpl) getTCertFromDER(certBlk *TCertDBBlock) (certBlock *TCe
 	// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
 	// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
 
-	tempSK, err := csp.KeyDeriv(client.enrollPrivKey, &bccsp.ECDSAReRandKeyOpts{false, ExpansionValue})
+	tempSK, err := csp.KeyDeriv(client.enrollPrivKey, &bccsp.ECDSAReRandKeyOpts{Temporary:false, Expansion: ExpansionValue})
 	if err != nil {
 		client.Errorf("Failed getting BCCSP: [%s].", err)
 
@@ -438,7 +438,7 @@ func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes []string,
 		// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
 
 		// Compute temporary secret key
-		tempSK, err := csp.KeyDeriv(client.enrollPrivKey, &bccsp.ECDSAReRandKeyOpts{false, ExpansionValue})
+		tempSK, err := csp.KeyDeriv(client.enrollPrivKey, &bccsp.ECDSAReRandKeyOpts{Temporary: false, Expansion: ExpansionValue})
 		if err != nil {
 			client.Errorf("Failed getting BCCSP: [%s].", err)
 
