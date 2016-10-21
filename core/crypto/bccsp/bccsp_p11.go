@@ -10,7 +10,13 @@ import (
 	"github.com/op/go-logging"
 	"encoding/hex"
 	"math/big"
+	"os"
 	"github.com/hyperledger/fabric/core/crypto/utils"
+
+	"github.com/pkcs11"
+
+	"sync/atomic"         // unique-ID assignment
+	"log"
 )
 
 var (
@@ -26,6 +32,117 @@ type P11BCCSP struct {
 	ks *swBCCSPKeyStore
 }
 
+
+//-----  tvi's P11 stuff, redacted  ------------------------------------------
+var SO_PATH_DEFAULT = "/usr/local/lib64/pkcs11/libopencryptoki.so"
+
+// sha256(0 bits)
+// placeholder, replaced after key generation
+const defaultSKI = "\xe3\xb0\xc4\x42\x98\xfc\x1c\x14\x9a\xfb\xf4\xc8\x99\x6f\xb9\x24\x27\xae\x41\xe4\x64\x9b\x93\x4c\xa4\x95\x99\x1b\x78\x52\xb8\x55"
+
+
+//----------------------------------------------------------------------------
+// label mgmt
+// do not worry about index wrapping
+var id_ctr uint64
+
+
+//--------------------------------------
+// caller must check for non-repeating ID, we just supply unique ctr here
+// TODO: cross-image unicity
+func next_id_ctr() uint64 {
+        return atomic.AddUint64(&id_ctr, 1)
+}
+
+
+//--------------------------------------
+func algconst2oid (alg int) (oid []byte) {
+        switch (alg) {
+//      case:
+//              return oid_ec_P384, nil
+//              return oid_ec_P512, nil
+        default:
+                return []byte("\x06\x08\x2a\x86\x48\xce\x3d\x03\x01\x07")
+        }
+}
+
+
+//--------------------------------------
+func loadlib() *pkcs11.Ctx {
+        lib := SO_PATH_DEFAULT
+        if x := os.Getenv("PKCS11LIB"); x != "" {
+                lib = x
+        }
+
+        ps := pkcs11.New(lib)
+        if ps == nil {
+                fmt.Printf("P11: instantiate failed [%s]\n", lib)
+        }
+	return ps
+}
+
+
+func generate_pkcs11() (pkcs11.ObjectHandle, pkcs11.ObjectHandle, error) {
+	var slot uint = 4                 // ocki default
+
+	var p11lib = loadlib()
+
+	p11lib.Initialize()
+	defer p11lib.Destroy()
+	defer p11lib.Finalize()
+
+	session, _ := p11lib.OpenSession(slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
+
+	var id uint64 = next_id_ctr()
+	var ec_param_oid = algconst2oid(0)
+
+	var publabel = fmt.Sprintf("BCPUB%010u", id)
+	var prvlabel = fmt.Sprintf("BCPRV%010u", id)
+
+	p11lib.Login(session, pkcs11.CKU_USER, "31419265")
+	defer p11lib.Logout(session)
+
+        pubkey_t := []*pkcs11.Attribute{
+                pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
+                pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
+                pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
+                pkcs11.NewAttribute(pkcs11.CKA_VERIFY, true),
+                pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, ec_param_oid),
+
+                pkcs11.NewAttribute(pkcs11.CKA_ID,    publabel),
+                pkcs11.NewAttribute(pkcs11.CKA_LABEL, publabel),
+                pkcs11.NewAttribute(pkcs11.CKA_HASH_OF_SUBJECT_PUBLIC_KEY,
+                                    defaultSKI),
+        }
+
+        prvkey_t := []*pkcs11.Attribute{
+                pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PRIVATE_KEY),
+                pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
+                pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
+                pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
+                pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
+
+                pkcs11.NewAttribute(pkcs11.CKA_ID,    prvlabel),
+                pkcs11.NewAttribute(pkcs11.CKA_LABEL, prvlabel),
+                pkcs11.NewAttribute(pkcs11.CKA_HASH_OF_SUBJECT_PUBLIC_KEY,
+                                    defaultSKI),
+        }
+
+        pub, priv, err := p11lib.GenerateKeyPair(session,
+                []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_EC_KEY_PAIR_GEN, nil)},
+                pubkey_t, prvkey_t)
+
+        if err != nil {
+                log.Fatal(err)
+        }
+
+        return pub, priv, nil
+
+}
+
+//-----  /tvi's P11 stuff  ---------------------------------------------------
+
+
 // KeyGen generates a key using opts.
 func (csp *P11BCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 	// Validate arguments
@@ -36,6 +153,11 @@ func (csp *P11BCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 	// Parse algorithm
 	switch opts.Algorithm() {
 	case "ECDSA":
+			// generate an ECDSA key through P11
+			// ...which will then be discarded...
+			//
+		generate_pkcs11()
+
 		lowLevelKey, err := primitives.NewECDSAKey()
 		if err != nil {
 			return nil, fmt.Errorf("Failed generating ECDSA key [%s]", err)
