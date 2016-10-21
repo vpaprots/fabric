@@ -48,6 +48,15 @@ security:
            file:
 
 
+    bccsp:
+      keyStorePath: "/tmp"
+      #default: SW
+      default: "P11"
+
+      pkcs11:
+        library: "/usr/lib/libacsp-pkcs11.so"
+        pin:     "98765432"
+
 # Enabling/disabling different logging levels of the CA.
 #
 logging:

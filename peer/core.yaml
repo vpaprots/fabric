@@ -429,12 +429,13 @@ security:
     confidentialityProtocolVersion: 1.2
 
     bccsp:
+      keyStorePath: "/tmp"
       #default: SW
-      default: PKCS11
-
-      pkcs11Support:
+      default: "P11"
+      
+      pkcs11:
         library: "/usr/lib/libacsp-pkcs11.so"
-        pin:     "31419265"
+        pin:     "98765432"
 
 
 ################################################################################
