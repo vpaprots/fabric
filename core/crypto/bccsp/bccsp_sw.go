@@ -1,23 +1,22 @@
 package bccsp
 
 import (
-	"github.com/hyperledger/fabric/core/crypto/primitives"
-	"fmt"
-	"errors"
-	"crypto/rand"
 	"crypto/ecdsa"
+	"crypto/rand"
 	"encoding/asn1"
-	"github.com/op/go-logging"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"math/big"
+
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/op/go-logging"
 )
 
 var (
 	defaultBCCSPLog = logging.MustGetLogger("bccsp_default")
 )
-
-
 
 // SoftwareBasedBCCSP is the software-based implementation of the BCCSP.
 // It is based on code used in the primitives package.
@@ -132,7 +131,6 @@ func (csp *SoftwareBasedBCCSP) KeyDeriv(k Key, opts KeyDerivOpts) (dk Key, err e
 			if !isOn {
 				return nil, errors.New("Failed temporary public key IsOnCurve check. This is an foreign key.")
 			}
-
 
 			reRandomizedKey := &swECDSAPrivateKey{tempSK}
 
@@ -259,7 +257,6 @@ func (csp *SoftwareBasedBCCSP) GetKey(ski []byte) (k Key, err error) {
 	if len(ski) == 0 {
 		return nil, errors.New("Invalid ski. Zero length.")
 	}
-
 
 	suffix := csp.ks.getSuffix(hex.EncodeToString(ski))
 

@@ -1,29 +1,29 @@
 package bccsp
 
 import (
-	"github.com/hyperledger/fabric/core/crypto/primitives"
-	"fmt"
-	"errors"
-	"crypto/rand"
 	"crypto/ecdsa"
+	"crypto/rand"
 	"encoding/asn1"
-	"github.com/op/go-logging"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"math/big"
-//	"os"
-	"github.com/spf13/viper"
+
+	"github.com/hyperledger/fabric/core/crypto/primitives"
+	"github.com/op/go-logging"
+	//	"os"
 	"github.com/hyperledger/fabric/core/crypto/utils"
+	"github.com/spf13/viper"
 
 	"github.com/pkcs11"
 
-	"sync/atomic"         // unique-ID assignment
 	"log"
+	"sync/atomic" // unique-ID assignment
 )
 
 var (
 	p11BCCSPLog = logging.MustGetLogger("bccsp_p11")
 )
-
 
 // P11BCCSP is the PKCS11-based implementation of the BCCSP.
 // It is based on code used in the primitives package.
@@ -32,56 +32,50 @@ type P11BCCSP struct {
 	ks *swBCCSPKeyStore
 }
 
-
 //-----  tvi's P11 stuff, redacted  ------------------------------------------
 // sha256(0 bits)
 // placeholder, replaced after key generation
 const defaultSKI = "\xe3\xb0\xc4\x42\x98\xfc\x1c\x14\x9a\xfb\xf4\xc8\x99\x6f\xb9\x24\x27\xae\x41\xe4\x64\x9b\x93\x4c\xa4\x95\x99\x1b\x78\x52\xb8\x55"
-
 
 //----------------------------------------------------------------------------
 // label mgmt
 // do not worry about index wrapping
 var id_ctr uint64
 
-
 //--------------------------------------
 // caller must check for non-repeating ID, we just supply unique ctr here
 // TODO: cross-image unicity
 func next_id_ctr() uint64 {
-        return atomic.AddUint64(&id_ctr, 1)
+	return atomic.AddUint64(&id_ctr, 1)
 }
-
 
 //--------------------------------------
-func algconst2oid (alg int) (oid []byte) {
-        switch (alg) {
-//      case:
-//              return oid_ec_P384, nil
-//              return oid_ec_P512, nil
-        default:
-                return []byte("\x06\x08\x2a\x86\x48\xce\x3d\x03\x01\x07")
-        }
+func algconst2oid(alg int) (oid []byte) {
+	switch alg {
+	//      case:
+	//              return oid_ec_P384, nil
+	//              return oid_ec_P512, nil
+	default:
+		return []byte("\x06\x08\x2a\x86\x48\xce\x3d\x03\x01\x07")
+	}
 }
-
 
 //--------------------------------------
 func loadlib() *pkcs11.Ctx {
 	var lib = viper.GetString("security.bccsp.pkcs11.library")
-        if lib == "" {
+	if lib == "" {
 		log.Fatal("P11: no library default\n")
-        }
+	}
 
-        ps := pkcs11.New(lib)
-        if ps == nil {
-                fmt.Printf("P11: instantiate failed [%s]\n", lib)
-        }
+	ps := pkcs11.New(lib)
+	if ps == nil {
+		fmt.Printf("P11: instantiate failed [%s]\n", lib)
+	}
 	return ps
 }
 
-
 func generate_pkcs11() (pkcs11.ObjectHandle, pkcs11.ObjectHandle, error) {
-	var slot uint = 4                 // ocki default
+	var slot uint = 4 // ocki default
 
 	var p11lib = loadlib()
 
@@ -98,53 +92,52 @@ func generate_pkcs11() (pkcs11.ObjectHandle, pkcs11.ObjectHandle, error) {
 	var prvlabel = fmt.Sprintf("BCPRV%010d", id)
 
 	var pin = viper.GetString("security.bccsp.pkcs11.pin")
-        if pin == "" {
+	if pin == "" {
 		log.Fatal("P11: no PIN set\n")
-        }
+	}
 
 	p11lib.Login(session, pkcs11.CKU_USER, pin)
 	defer p11lib.Logout(session)
 
-        pubkey_t := []*pkcs11.Attribute{
-                pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
-                pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
-                pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
-                pkcs11.NewAttribute(pkcs11.CKA_VERIFY, true),
-                pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, ec_param_oid),
+	pubkey_t := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
+		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
+		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
+		pkcs11.NewAttribute(pkcs11.CKA_VERIFY, true),
+		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, ec_param_oid),
 
-                pkcs11.NewAttribute(pkcs11.CKA_ID,    publabel),
-//                pkcs11.NewAttribute(pkcs11.CKA_LABEL, publabel),
-//                pkcs11.NewAttribute(pkcs11.CKA_HASH_OF_SUBJECT_PUBLIC_KEY,
-//                                    defaultSKI),
-        }
+		pkcs11.NewAttribute(pkcs11.CKA_ID, publabel),
+		//                pkcs11.NewAttribute(pkcs11.CKA_LABEL, publabel),
+		//                pkcs11.NewAttribute(pkcs11.CKA_HASH_OF_SUBJECT_PUBLIC_KEY,
+		//                                    defaultSKI),
+	}
 
-        prvkey_t := []*pkcs11.Attribute{
-                pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PRIVATE_KEY),
-                pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
-                pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
-                pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
-                pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
+	prvkey_t := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PRIVATE_KEY),
+		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
+		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
+		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
+		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
 
-                pkcs11.NewAttribute(pkcs11.CKA_ID,    prvlabel),
-//                pkcs11.NewAttribute(pkcs11.CKA_LABEL, prvlabel),
-//                pkcs11.NewAttribute(pkcs11.CKA_HASH_OF_SUBJECT_PUBLIC_KEY,
-//                                    defaultSKI),
-        }
+		pkcs11.NewAttribute(pkcs11.CKA_ID, prvlabel),
+		//                pkcs11.NewAttribute(pkcs11.CKA_LABEL, prvlabel),
+		//                pkcs11.NewAttribute(pkcs11.CKA_HASH_OF_SUBJECT_PUBLIC_KEY,
+		//                                    defaultSKI),
+	}
 
-        pub, priv, err := p11lib.GenerateKeyPair(session,
-                []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_EC_KEY_PAIR_GEN, nil)},
-                pubkey_t, prvkey_t)
+	pub, priv, err := p11lib.GenerateKeyPair(session,
+		[]*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_EC_KEY_PAIR_GEN, nil)},
+		pubkey_t, prvkey_t)
 
-        if err != nil {
-                log.Fatal(err)
-        }
+	if err != nil {
+		log.Fatal(err)
+	}
 
-        return pub, priv, nil
+	return pub, priv, nil
 
 }
 
 //-----  /tvi's P11 stuff  ---------------------------------------------------
-
 
 // KeyGen generates a key using opts.
 func (csp *P11BCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
@@ -156,9 +149,9 @@ func (csp *P11BCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 	// Parse algorithm
 	switch opts.Algorithm() {
 	case "ECDSA":
-			// generate an ECDSA key through P11
-			// ...which will then be discarded...
-			//
+		// generate an ECDSA key through P11
+		// ...which will then be discarded...
+		//
 		generate_pkcs11()
 
 		lowLevelKey, err := primitives.NewECDSAKey()
@@ -257,7 +250,6 @@ func (csp *P11BCCSP) KeyDeriv(k Key, opts KeyDerivOpts) (dk Key, err error) {
 			if !isOn {
 				return nil, errors.New("Failed temporary public key IsOnCurve check. This is an foreign key.")
 			}
-
 
 			reRandomizedKey := &swECDSAPrivateKey{tempSK}
 
@@ -384,7 +376,6 @@ func (csp *P11BCCSP) GetKey(ski []byte) (k Key, err error) {
 	if len(ski) == 0 {
 		return nil, errors.New("Invalid ski. Zero length.")
 	}
-
 
 	suffix := csp.ks.getSuffix(hex.EncodeToString(ski))
 

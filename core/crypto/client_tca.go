@@ -28,9 +28,9 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/hyperledger/fabric/core/crypto/bccsp"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"golang.org/x/net/context"
-	"github.com/hyperledger/fabric/core/crypto/bccsp"
 )
 
 func (client *clientImpl) initTCertEngine() (err error) {
@@ -302,7 +302,7 @@ func (client *clientImpl) getTCertFromDER(certBlk *TCertDBBlock) (certBlock *TCe
 	// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
 	// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
 
-	tempSK, err := csp.KeyDeriv(client.enrollPrivKey, &bccsp.ECDSAReRandKeyOpts{Temporary:false, Expansion: ExpansionValue})
+	tempSK, err := csp.KeyDeriv(client.enrollPrivKey, &bccsp.ECDSAReRandKeyOpts{Temporary: false, Expansion: ExpansionValue})
 	if err != nil {
 		client.Errorf("Failed getting BCCSP: [%s].", err)
 

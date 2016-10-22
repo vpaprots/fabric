@@ -4,13 +4,13 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"fmt"
+
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 type swECDSAPrivateKey struct {
 	k *ecdsa.PrivateKey
 }
-
 
 // ToByte converts this key to its byte representation,
 // if this operation is allowed.
@@ -28,13 +28,13 @@ func (k *swECDSAPrivateKey) GetSKI() (ski []byte) {
 
 // Symmetric returns true if this key is a symmetric key,
 // false is this key is asymmetric
-func (k *swECDSAPrivateKey) Symmetric() (bool) {
+func (k *swECDSAPrivateKey) Symmetric() bool {
 	return false
 }
 
 // Private returns true if this key is an asymmetric private key,
 // false otherwise.
-func (k *swECDSAPrivateKey) Private() (bool) {
+func (k *swECDSAPrivateKey) Private() bool {
 	return true
 }
 
@@ -45,11 +45,9 @@ func (k *swECDSAPrivateKey) PublicKey() (Key, error) {
 	return &swECDSAPublicKey{&k.k.PublicKey}, nil
 }
 
-
 type swECDSAPublicKey struct {
 	k *ecdsa.PublicKey
 }
-
 
 // ToByte converts this key to its byte representation,
 // if this operation is allowed.
@@ -71,13 +69,13 @@ func (k *swECDSAPublicKey) GetSKI() (ski []byte) {
 
 // Symmetric returns true if this key is a symmetric key,
 // false is this key is asymmetric
-func (k *swECDSAPublicKey) Symmetric() (bool) {
+func (k *swECDSAPublicKey) Symmetric() bool {
 	return false
 }
 
 // Private returns true if this key is an asymmetric private key,
 // false otherwise.
-func (k *swECDSAPublicKey) Private() (bool) {
+func (k *swECDSAPublicKey) Private() bool {
 	return false
 }
 
@@ -87,4 +85,3 @@ func (k *swECDSAPublicKey) Private() (bool) {
 func (k *swECDSAPublicKey) PublicKey() (Key, error) {
 	return k, nil
 }
-

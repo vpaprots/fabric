@@ -14,11 +14,11 @@ type Key interface {
 
 	// Symmetric returns true if this key is a symmetric key,
 	// false is this key is asymmetric
-	Symmetric() (bool)
+	Symmetric() bool
 
 	// Private returns true if this key is an asymmetric private key,
 	// false otherwise.
-	Private() (bool)
+	Private() bool
 
 	// PublicKey returns the corresponding public key if this key
 	// is an asymmetric private key. If this key is already public,
@@ -51,7 +51,7 @@ type KeyDerivOpts interface {
 }
 
 // KeyImportOpts contains options for importing the raw material of a key with a CSP.
-type KeyImportOpts interface{
+type KeyImportOpts interface {
 	// Algorithm returns an identifier for the algorithm to be used
 	// to import the raw material of a key.
 	Algorithm() string
@@ -62,7 +62,7 @@ type KeyImportOpts interface{
 }
 
 // SignerOpts contains options for signing with a CSP.
-type SignerOpts interface{
+type SignerOpts interface {
 	crypto.SignerOpts
 }
 

@@ -13,12 +13,12 @@ func TestGetDefault(t *testing.T) {
 }
 
 func TestGetBCCP(t *testing.T) {
-	csp1, err := GetBCCSP(&SwFactoryOpts{EphemeralFlag:true})
+	csp1, err := GetBCCSP(&SwFactoryOpts{EphemeralFlag: true})
 	if err != nil {
 		t.Fatalf("Failed getting ephmeral software-based BCCSP [%s]", err)
 	}
 
-	csp2, err := GetBCCSP(&SwFactoryOpts{EphemeralFlag:true})
+	csp2, err := GetBCCSP(&SwFactoryOpts{EphemeralFlag: true})
 	if err != nil {
 		t.Fatalf("Failed getting ephmeral software-based BCCSP [%s]", err)
 	}
@@ -29,12 +29,12 @@ func TestGetBCCP(t *testing.T) {
 }
 
 func TestGetBCCP2(t *testing.T) {
-	csp1, err := GetBCCSP(&SwFactoryOpts{EphemeralFlag:false})
+	csp1, err := GetBCCSP(&SwFactoryOpts{EphemeralFlag: false})
 	if err != nil {
 		t.Fatalf("Failed getting non-ephmeral software-based BCCSP [%s]", err)
 	}
 
-	csp2, err := GetBCCSP(&SwFactoryOpts{EphemeralFlag:false})
+	csp2, err := GetBCCSP(&SwFactoryOpts{EphemeralFlag: false})
 	if err != nil {
 		t.Fatalf("Failed getting non-ephmeral software-based BCCSP [%s]", err)
 	}

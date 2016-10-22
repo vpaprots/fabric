@@ -1,15 +1,15 @@
 package bccsp
 
 import (
-	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"errors"
+
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 type swAESPrivateKey struct {
-	k []byte
+	k          []byte
 	exportable bool
 }
-
 
 // Bytes converts this key to its byte representation,
 // if this operation is allowed.
@@ -28,13 +28,13 @@ func (k *swAESPrivateKey) GetSKI() (ski []byte) {
 
 // Symmetric returns true if this key is a symmetric key,
 // false is this key is asymmetric
-func (k *swAESPrivateKey) Symmetric() (bool) {
+func (k *swAESPrivateKey) Symmetric() bool {
 	return true
 }
 
 // Private returns true if this key is an asymmetric private key,
 // false otherwise.
-func (k *swAESPrivateKey) Private() (bool) {
+func (k *swAESPrivateKey) Private() bool {
 	return true
 }
 

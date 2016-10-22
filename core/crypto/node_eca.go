@@ -28,11 +28,11 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/hyperledger/fabric/core/crypto/bccsp"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/primitives/ecies"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"github.com/hyperledger/fabric/core/crypto/bccsp"
 )
 
 var (

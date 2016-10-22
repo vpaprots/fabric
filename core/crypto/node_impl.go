@@ -19,9 +19,9 @@ package crypto
 import (
 	"crypto/x509"
 
+	"github.com/hyperledger/fabric/core/crypto/bccsp"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
-	"github.com/hyperledger/fabric/core/crypto/bccsp"
 )
 
 // Public Struct
