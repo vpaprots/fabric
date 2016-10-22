@@ -36,14 +36,15 @@ import (
 
 	gp "google/protobuf"
 
+	"crypto"
+
+	"github.com/hyperledger/fabric/core/crypto/bccsp"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/flogging"
 	pb "github.com/hyperledger/fabric/membersrvc/protos"
 	_ "github.com/mattn/go-sqlite3" // This blank import is required to load sqlite3 driver
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
-	"github.com/hyperledger/fabric/core/crypto/bccsp"
-	"crypto"
 )
 
 var caLogger = logging.MustGetLogger("ca")
@@ -54,10 +55,10 @@ type CA struct {
 
 	path string
 
-	priv bccsp.Key
+	priv       bccsp.Key
 	privSigner crypto.Signer
-	cert *x509.Certificate
-	raw  []byte
+	cert       *x509.Certificate
+	raw        []byte
 }
 
 // CertificateSpec defines the parameter used to create a new certificate.
@@ -309,7 +310,6 @@ func (ca *CA) Stop() error {
 
 func (ca *CA) createCAKeyPair(name string) bccsp.Key {
 	caLogger.Debug("Creating CA key pair.")
-
 
 	csp, err := bccsp.GetDefault()
 	if err != nil {

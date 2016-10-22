@@ -1,9 +1,10 @@
 package bccsp
 
 import (
-	"testing"
-	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"crypto/rand"
+	"testing"
+
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 func TestCryptoSigner_Init(t *testing.T) {

@@ -1,19 +1,19 @@
 package bccsp
 
 import (
-	"io"
 	"crypto"
-	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"errors"
 	"fmt"
+	"io"
+
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 type CryptoSigner struct {
 	csp BCCSP
 	key Key
-	pk interface{}
+	pk  interface{}
 }
-
 
 func (s *CryptoSigner) Init(csp BCCSP, key Key) error {
 	// Validate arguments
@@ -29,7 +29,7 @@ func (s *CryptoSigner) Init(csp BCCSP, key Key) error {
 
 	// Marshall the bccsp public key as a crypto.PublicKey
 	pub, err := key.PublicKey()
-	if (err != nil) {
+	if err != nil {
 		return fmt.Errorf("Failed getting public key [%s]", err)
 	}
 

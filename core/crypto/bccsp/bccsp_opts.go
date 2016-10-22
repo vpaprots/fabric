@@ -54,7 +54,7 @@ func (opts *AES256GenKeyOpts) Ephemeral() bool {
 	return opts.Temporary
 }
 
-type AESCBCPKCS7ModeOpts struct {}
+type AESCBCPKCS7ModeOpts struct{}
 
 type HMACTruncated256AESDeriveKeyOpts struct {
 	Temporary bool
@@ -80,7 +80,7 @@ func (opts *HMACTruncated256AESDeriveKeyOpts) Argument() []byte {
 
 type HMACDeriveKeyOpts struct {
 	Temporary bool
-	Arg []byte
+	Arg       []byte
 }
 
 // Algorithm returns an identifier for the algorithm to be used

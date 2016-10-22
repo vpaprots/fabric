@@ -28,4 +28,3 @@ func (o *SwFactoryOpts) FactoryName() string {
 func (o *SwFactoryOpts) Ephemeral() bool {
 	return o.EphemeralFlag
 }
-

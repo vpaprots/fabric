@@ -7,15 +7,16 @@ import (
 
 	"github.com/hyperledger/fabric/core/crypto/utils"
 
-	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 type swBCCSPKeyStore struct {
 	conf *swBCCSPConfiguration
-	
+
 	isOpen bool
 
 	pwd []byte
@@ -37,7 +38,6 @@ func (ks *swBCCSPKeyStore) init(pwd []byte) error {
 	if err != nil {
 		return fmt.Errorf("Failed initializing configuration [%s]", err)
 	}
-
 
 	ks.pwd = utils.Clone(pwd)
 

@@ -19,12 +19,13 @@ package crypto
 import (
 	"math/big"
 
-	"github.com/hyperledger/fabric/core/crypto/primitives"
-	"github.com/hyperledger/fabric/core/crypto/bccsp"
-	"encoding/asn1"
-	"fmt"
-	"errors"
 	"crypto/ecdsa"
+	"encoding/asn1"
+	"errors"
+	"fmt"
+
+	"github.com/hyperledger/fabric/core/crypto/bccsp"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
 
 func (node *nodeImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {

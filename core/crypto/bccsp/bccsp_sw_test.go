@@ -1,11 +1,12 @@
 package bccsp
 
 import (
+	"bytes"
+	"os"
 	"testing"
+
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/spf13/viper"
-	"os"
-	"bytes"
 )
 
 func getDefaultBCCSP(t *testing.T) BCCSP {
@@ -344,7 +345,6 @@ func TestDefaultBCCSP_DeriveKey3(t *testing.T) {
 	if len(raw) != 0 {
 		t.Fatal("Failed marshalling to bytes. Operation must return 0 bytes")
 	}
-
 
 	msg := []byte("Hello World")
 

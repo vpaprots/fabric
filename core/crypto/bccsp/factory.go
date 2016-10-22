@@ -1,9 +1,10 @@
 package bccsp
 
 import (
-	"sync"
-	"fmt"
 	"errors"
+	"fmt"
+	"sync"
+
 	"github.com/spf13/viper"
 )
 
@@ -24,7 +25,6 @@ var (
 // Factory is used to get instances of the BCCSP interface.
 // A Factory has name used to address it.
 type Factory interface {
-
 	Name() string
 
 	Get(opts FactoryOpts) (BCCSP, error)
@@ -38,7 +38,6 @@ type FactoryOpts interface {
 
 	// Ephemeral returns true if the BCCSP has to be ephemeral, false otherwise
 	Ephemeral() bool
-
 }
 
 // GetDefault returns a non-ephemeral (long-term) BCCSP

@@ -20,8 +20,8 @@ import (
 	"crypto/x509"
 
 	"github.com/hyperledger/fabric/core/crypto/attributes"
-	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/hyperledger/fabric/core/crypto/bccsp"
+	"github.com/hyperledger/fabric/core/crypto/utils"
 )
 
 type tCert interface {

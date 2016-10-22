@@ -21,12 +21,13 @@ import (
 	mrand "math/rand"
 	"time"
 
-	pb "github.com/hyperledger/fabric/membersrvc/protos"
-	"github.com/hyperledger/fabric/core/crypto/bccsp"
-	"fmt"
 	"encoding/asn1"
-	"github.com/hyperledger/fabric/core/crypto/primitives"
+	"fmt"
 	"math/big"
+
+	"github.com/hyperledger/fabric/core/crypto/bccsp"
+	"github.com/hyperledger/fabric/core/crypto/primitives"
+	pb "github.com/hyperledger/fabric/membersrvc/protos"
 )
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -70,7 +71,6 @@ func MemberRoleToString(role pb.Role) (string, error) {
 
 	return roleStr, nil
 }
-
 
 func ECDSASignDirect(key bccsp.Key, msg []byte) (*big.Int, *big.Int, error) {
 	csp, err := bccsp.GetDefault()

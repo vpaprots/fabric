@@ -13,7 +13,7 @@ const (
 type P11BCCSPFactory struct {
 	defaultBCCSPInitOnce sync.Once
 	defaultBCCSP         BCCSP
-	defaultBCCSPError error
+	defaultBCCSPError    error
 }
 
 func (f *P11BCCSPFactory) Name() string {
@@ -50,4 +50,3 @@ func (f *P11BCCSPFactory) Get(opts FactoryOpts) (BCCSP, error) {
 	return &P11BCCSP{ks}, nil
 
 }
-

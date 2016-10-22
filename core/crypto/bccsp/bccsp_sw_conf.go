@@ -4,12 +4,13 @@ import (
 	"errors"
 	"path/filepath"
 
-	"github.com/spf13/viper"
 	"os"
+
+	"github.com/spf13/viper"
 )
 
 type swBCCSPConfiguration struct {
-	keystorePath      string
+	keystorePath string
 
 	configurationPathProperty string
 }
@@ -48,7 +49,5 @@ func (conf *swBCCSPConfiguration) getKeyStorePath() string {
 }
 
 func (conf *swBCCSPConfiguration) getPathForAlias(alias, suffix string) string {
-	return filepath.Join(conf.getKeyStorePath(), alias + "_" + suffix)
+	return filepath.Join(conf.getKeyStorePath(), alias+"_"+suffix)
 }
-
-

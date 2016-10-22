@@ -19,10 +19,10 @@ package crypto
 import (
 	"errors"
 
+	"github.com/hyperledger/fabric/core/crypto/bccsp"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	obc "github.com/hyperledger/fabric/protos"
-	"github.com/hyperledger/fabric/core/crypto/bccsp"
 )
 
 type clientImpl struct {
