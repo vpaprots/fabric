@@ -225,6 +225,12 @@
 			"revisionTime": "2015-11-06T23:54:04+09:00"
 		},
 		{
+			"checksumSHA1": "CPLSqPx5WswkGTWXu3hpn4SfpNw=",
+			"path": "github.com/miekg/pkcs11",
+			"revision": "eac14b751b5859fd5936f7b0b03f7b68cf6bcfbc",
+			"revisionTime": "2016-08-03T16:41:29Z"
+		},
+		{
 			"path": "github.com/mitchellh/mapstructure",
 			"revision": "281073eb9eb092240d33ef253c404f1cca550309",
 			"revisionTime": "2015-07-16T22:11:58-07:00"
@@ -417,6 +423,10 @@
 			"path": "gopkg.in/yaml.v2",
 			"revision": "7ad95dd0798a40da1ccdff6dff35fd177b5edf40",
 			"revisionTime": "2015-06-24T11:29:02+01:00"
+		},
+		{
+			"path": "https://github.com/miekg/pkcs11",
+			"revision": ""
 		}
 	],
 	"rootPath": "github.com/hyperledger/fabric"

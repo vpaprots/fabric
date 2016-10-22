@@ -15,7 +15,7 @@ import (
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/spf13/viper"
 
-	"github.com/pkcs11"
+	"github.com/miekg/pkcs11"
 
 	"log"
 	"sync/atomic" // unique-ID assignment
