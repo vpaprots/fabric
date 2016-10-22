@@ -429,9 +429,10 @@ security:
     confidentialityProtocolVersion: 1.2
 
     bccsp:
-      keyStorePath: "/tmp"
+      keyStorePath: "/tmp/peer"
       #default: SW
-      default: "P11"
+      #default: "P11"
+      default: "H11"
       
       pkcs11:
         library: "/usr/lib/libacsp-pkcs11.so"
