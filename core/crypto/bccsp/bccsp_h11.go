@@ -8,21 +8,71 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/core/crypto/utils"
 	"github.com/op/go-logging"
+
+	"github.com/miekg/pkcs11"
+	"github.com/spf13/viper"
 )
 
 var (
 	h11BCCSPLog = logging.MustGetLogger("bccsp_h11")
+	counterLock sync.Mutex
+	counter, _  = new(big.Int).SetString("fffffffe00000003fffffffd0000000200000001fffffffe0000000300000000", 16) //minv(2^256,p256) just for fun
 )
 
 // HSMBasedBCCSP is the software-based implementation of the BCCSP.
 // It is based on code used in the primitives package.
 // It can be configured via vipe.
 type HSMBasedBCCSP struct {
-	ks *h11BCCSPKeyStore
+	ks      *h11BCCSPKeyStore
+	session *pkcs11.SessionHandle
+	ctx     *pkcs11.Ctx
+}
+
+func (csp *HSMBasedBCCSP) init() (err error) {
+	csp.session = nil
+
+	lib := viper.GetString("security.bccsp.pkcs11.library")
+	if lib == "" {
+		return fmt.Errorf("security.bccsp.pkcs11.library not set!\n")
+	}
+
+	pin := viper.GetString("security.bccsp.pkcs11.pin")
+	if pin == "" {
+		return fmt.Errorf("PIN not set, set security.bccsp.pkcs11.pin\n")
+	}
+
+	h11BCCSPLog.Debugf("Loading %s\n", lib)
+	p := pkcs11.New(lib)
+	if p == nil {
+		return fmt.Errorf("Failed to load lib [%s]\n", lib)
+	}
+
+	if err := p.Initialize(); err != nil {
+		return fmt.Errorf("Failed to Initialize [%s]\n", err)
+	}
+	slots, err := p.GetSlotList(true)
+	if err != nil {
+		return fmt.Errorf("Failed to GetSlotList [%s]\n", err)
+	}
+
+	session, err := p.OpenSession(slots[2], pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
+	if err != nil {
+		csp.session = nil
+		return fmt.Errorf("Failed to OpenSession [%s]\n", err)
+	}
+
+	if err := p.Login(session, pkcs11.CKU_USER, pin); err != nil {
+		return fmt.Errorf("Failed to Login [%s]\n", err)
+	}
+
+	csp.session = &session
+	csp.ctx = p
+	return nil
 }
 
 // KeyGen generates a key using opts.
@@ -35,6 +85,38 @@ func (csp *HSMBasedBCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 	// Parse algorithm
 	switch opts.Algorithm() {
 	case "ECDSA":
+
+		counterLock.Lock()
+		counter = new(big.Int).Add(counter, counter)
+		counterLock.Unlock()
+		tokenLabel := fmt.Sprintf("KEY%s", counter.Text(16))
+		tokenPersistent := false //!opts.Ephemeral()
+
+		publicKeyTemplate := []*pkcs11.Attribute{
+			pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
+			pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
+			pkcs11.NewAttribute(pkcs11.CKA_TOKEN, tokenPersistent),
+			pkcs11.NewAttribute(pkcs11.CKA_VERIFY, true),
+			pkcs11.NewAttribute(pkcs11.CKA_LABEL, tokenLabel),
+			pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, "\x06\x08\x2a\x86\x48\xce\x3d\x03\x01\x07"),
+		}
+		privateKeyTemplate := []*pkcs11.Attribute{
+			pkcs11.NewAttribute(pkcs11.CKA_TOKEN, tokenPersistent),
+			pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
+			pkcs11.NewAttribute(pkcs11.CKA_LABEL, tokenLabel),
+			pkcs11.NewAttribute(pkcs11.CKA_SENSITIVE, true),
+			pkcs11.NewAttribute(pkcs11.CKA_EXTRACTABLE, true),
+		}
+
+		h11BCCSPLog.Debugf("GenerateKeyPair %s\n", tokenLabel)
+		//pbk
+		_, pvk, err := csp.ctx.GenerateKeyPair(*csp.session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_EC_KEY_PAIR_GEN, nil)},
+			publicKeyTemplate, privateKeyTemplate)
+
+		if err != nil {
+			return nil, fmt.Errorf("Failed generating ECDSA key [[%s]", err)
+		}
+
 		lowLevelKey, err := primitives.NewECDSAKey()
 		if err != nil {
 			return nil, fmt.Errorf("Failed generating ECDSA key [%s]", err)
@@ -46,6 +128,11 @@ func (csp *HSMBasedBCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 		if !opts.Ephemeral() {
 			// Store the key
 			err = csp.ks.storePrivateKey(hex.EncodeToString(k.GetSKI()), lowLevelKey)
+			if err != nil {
+				return nil, fmt.Errorf("Failed storing ECDSA key [%s]", err)
+			}
+
+			err = csp.ks.storePrivateKey2(tokenLabel, pvk)
 			if err != nil {
 				return nil, fmt.Errorf("Failed storing ECDSA key [%s]", err)
 			}

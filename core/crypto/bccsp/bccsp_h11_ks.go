@@ -73,6 +73,16 @@ func (ks *h11BCCSPKeyStore) getSuffix(alias string) string {
 	return ""
 }
 
+func (ks *h11BCCSPKeyStore) storePrivateKey2(alias string, privateKey interface{}) error {
+	err := ioutil.WriteFile(ks.conf.getPathForAlias(alias, "sk"), nil, 0700)
+	if err != nil {
+		h11BCCSPLog.Errorf("Failed storing private key [%s]: [%s]", alias, err)
+		return err
+	}
+
+	return nil
+}
+
 func (ks *h11BCCSPKeyStore) storePrivateKey(alias string, privateKey interface{}) error {
 	rawKey, err := primitives.PrivateKeyToPEM(privateKey, ks.pwd)
 	if err != nil {
