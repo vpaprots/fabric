@@ -34,6 +34,60 @@ type P11BCCSP struct {
 }
 
 //-----  tvi's P11 stuff, redacted  ------------------------------------------
+// how many Bytes of an SKI [hash(publickey)] to store as CKA_ID
+const SKI_BYTES = 32
+
+// SKI-to-pubkey and pubkey-to-SKI hashes both indexed by hex-string
+// encodings of []byte [which is not allowed as key]
+//
+// hash[ SKI ] -> publickey
+var ski2pubkey_h = make(map[string] []byte)
+
+// hash[ publickey ] -> SKI
+// could be computed (hash a portion); stored in CSP-persistent table instead
+//
+var pubkey2ski_h = make(map[string] []byte)
+
+
+//--------------------------------------
+// public key corresponding to previously seen SKI ['test and set']
+// - sets pubkey if non-nil, and not yet in table
+//
+// ...add any SKI-specific lookup, session storage etc. here...
+//
+func ski2pubkey (ski []byte, pubkey []byte) []byte {
+	skey := string(ski)
+
+	pk, ok := ski2pubkey_h[ skey ]
+	if (!ok) {
+		if (nil != pubkey) {
+			ski2pubkey_h[ skey ] = pubkey
+		}
+		pk = nil
+	} 
+
+	return pk
+}
+
+
+//--------------------------------------
+// reverse of ski2pubkey()
+func pubkey2ski (pubkey []byte, ski []byte) []byte {
+	pkey := string(pubkey)
+
+	sk, ok := pubkey2ski_h[ pkey ]
+	if (!ok) {
+		if (nil != ski) {
+			pubkey2ski_h[ pkey ] = ski
+		}
+		sk = nil
+	} 
+
+	return sk
+}
+
+
+
 // label mgmt
 // do not worry about index wrapping
 var id_ctr uint64
@@ -69,6 +123,44 @@ func loadlib() *pkcs11.Ctx {
 	}
 	return ps
 }
+
+
+//--------------------------------------
+func ski2keyhandle(mod *pkcs11.Ctx, session pkcs11.SessionHandle, ski []byte, is_private bool) (pkcs11.ObjectHandle, error) {
+	var noHandle pkcs11.ObjectHandle
+
+	var ktype = pkcs11.CKO_PUBLIC_KEY
+
+	if (is_private) {
+		ktype = pkcs11.CKO_PRIVATE_KEY
+	}
+
+	template := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, ktype),
+		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
+		pkcs11.NewAttribute(pkcs11.CKA_ID, ski),
+	}
+	if err := mod.FindObjectsInit(session, template); err != nil {
+		return noHandle, err
+	}
+
+		// single session instance, assume one hit only
+	objs, _, err := mod.FindObjects(session, 1)
+	if err != nil {
+		return noHandle, err
+	}
+	if err = mod.FindObjectsFinal(session); err != nil {
+		return noHandle, err
+	}
+
+	if len(objs) == 0 {
+		return noHandle, fmt.Errorf("P11: private key not found")
+	}
+
+	return objs[0], nil
+}
+
+
 
 func generate_pkcs11() (pkcs11.ObjectHandle, pkcs11.ObjectHandle, error) {
 	var slot uint = 4 // ocki default
@@ -225,18 +317,17 @@ func eckey2ski(p11lib *pkcs11.Ctx, session pkcs11.SessionHandle, key pkcs11.Obje
 	return ecpt
 }
 
-func Generate_pkcs11(int alg) (ski []byte, err error) {
+func Generate_pkcs11(alg int) (ski []byte, err error) {
 	var slot uint = 4 // ocki default
 
 	_ = alg
-	_, _ = initialize(pathOCKI)
 
 	var p11lib = loadlib()
 
 	session, _ := p11lib.OpenSession(slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
 
 	var id uint64 = next_id_ctr()
-	var ec_param_oid, _ = algconst2oid(0)
+	var ec_param_oid = algconst2oid(0)
 
 	var publabel = fmt.Sprintf("BCPUB%010d", id)
 	var prvlabel = fmt.Sprintf("BCPRV%010d", id)
@@ -380,7 +471,7 @@ func Verify_pkcs11(ski []byte, alg int, msg []byte, sig []byte) error {
 var sha256abc = []byte("\xba\x78\x16\xbf\x8f\x01\xcf\xea\x41\x41\x40\xde\x5d\xae\x22\x23\xb0\x03\x61\xa3\x96\x17\x7a\x9c\xb4\x10\xff\x61\xf2\x00\x15\xad")
 
 func Eccycle() error {
-	var ski, err = Generate_pkcs11()
+	var ski, err = Generate_pkcs11(0)
 	if err != nil {
 		log.Fatalf("P11: generate cycle failed [%s]", err)
 	}
@@ -414,7 +505,7 @@ func Eccycle() error {
 	return nil
 }
 
-//-----  /tvi's P11 stuff  ---------------------------------------------------
+//-----  /tvi's P11 test stuff  ----------------------------------------------
 
 // KeyGen generates a key using opts.
 func (csp *P11BCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
@@ -430,6 +521,7 @@ func (csp *P11BCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 		// ...which will then be discarded...
 		//
 		generate_pkcs11()
+		_ = Eccycle()
 
 		lowLevelKey, err := primitives.NewECDSAKey()
 		if err != nil {
