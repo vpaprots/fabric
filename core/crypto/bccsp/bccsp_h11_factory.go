@@ -37,7 +37,12 @@ func (f *HSMBasedBCCSPFactory) Get(opts FactoryOpts) (BCCSP, error) {
 				f.defaultBCCSPError = fmt.Errorf("Failed initializing key store [%s]", err)
 				return
 			}
-			f.defaultBCCSP = &HSMBasedBCCSP{ks}
+			csp := &HSMBasedBCCSP{ks, nil, nil}
+			if err := csp.init(); err != nil {
+				f.defaultBCCSPError = fmt.Errorf("Failed initializing HSMBasedBCCSP [%s]", err)
+				return
+			}
+			f.defaultBCCSP = csp
 			return
 		})
 		return f.defaultBCCSP, f.defaultBCCSPError
@@ -47,6 +52,10 @@ func (f *HSMBasedBCCSPFactory) Get(opts FactoryOpts) (BCCSP, error) {
 	if err := ks.init(nil); err != nil {
 		return nil, fmt.Errorf("Failed initializing key store [%s]", err)
 	}
-	return &HSMBasedBCCSP{ks}, nil
+	csp := &HSMBasedBCCSP{ks, nil, nil}
+	if err := csp.init(); err != nil {
+		return nil, fmt.Errorf("Failed initializing HSMBasedBCCSP [%s]", err)
+	}
+	return csp, nil
 
 }
