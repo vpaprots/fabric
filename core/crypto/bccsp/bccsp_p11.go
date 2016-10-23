@@ -3,6 +3,7 @@ package bccsp
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/asn1"
 	"encoding/hex"
 	"errors"
@@ -33,11 +34,6 @@ type P11BCCSP struct {
 }
 
 //-----  tvi's P11 stuff, redacted  ------------------------------------------
-// sha256(0 bits)
-// placeholder, replaced after key generation
-const defaultSKI = "\xe3\xb0\xc4\x42\x98\xfc\x1c\x14\x9a\xfb\xf4\xc8\x99\x6f\xb9\x24\x27\xae\x41\xe4\x64\x9b\x93\x4c\xa4\x95\x99\x1b\x78\x52\xb8\x55"
-
-//----------------------------------------------------------------------------
 // label mgmt
 // do not worry about index wrapping
 var id_ctr uint64
@@ -107,9 +103,7 @@ func generate_pkcs11() (pkcs11.ObjectHandle, pkcs11.ObjectHandle, error) {
 		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, ec_param_oid),
 
 		pkcs11.NewAttribute(pkcs11.CKA_ID, publabel),
-		//                pkcs11.NewAttribute(pkcs11.CKA_LABEL, publabel),
-		//                pkcs11.NewAttribute(pkcs11.CKA_HASH_OF_SUBJECT_PUBLIC_KEY,
-		//                                    defaultSKI),
+		pkcs11.NewAttribute(pkcs11.CKA_LABEL, publabel),
 	}
 
 	prvkey_t := []*pkcs11.Attribute{
@@ -120,9 +114,7 @@ func generate_pkcs11() (pkcs11.ObjectHandle, pkcs11.ObjectHandle, error) {
 		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
 
 		pkcs11.NewAttribute(pkcs11.CKA_ID, prvlabel),
-		//                pkcs11.NewAttribute(pkcs11.CKA_LABEL, prvlabel),
-		//                pkcs11.NewAttribute(pkcs11.CKA_HASH_OF_SUBJECT_PUBLIC_KEY,
-		//                                    defaultSKI),
+		pkcs11.NewAttribute(pkcs11.CKA_LABEL, prvlabel),
 	}
 
 	pub, priv, err := p11lib.GenerateKeyPair(session,
@@ -135,6 +127,291 @@ func generate_pkcs11() (pkcs11.ObjectHandle, pkcs11.ObjectHandle, error) {
 
 	return pub, priv, nil
 
+}
+
+//-----  tvi sign/verify additions  ------------------------------------------
+
+// fairly straightforward EC-point query, other than opencryptoki
+// mis-reporting length, including the 04 Tag of the field following
+// the SPKI in EP11-returned MACed publickeys:
+//
+// attr type 385/x181, length 66 b  -- SHOULD be 1+64
+// EC point:
+// 00000000  04 ce 30 31 6d 5a fd d3  53 2d 54 9a 27 54 d8 7c
+// 00000010  d9 80 35 91 09 2d 6f 06  5a 8e e3 cb c0 01 b7 c9
+// 00000020  13 5d 70 d4 e5 62 f2 1b  10 93 f7 d5 77 41 ba 9d
+// 00000030  93 3e 18 3e 00 c6 0a 0e  d2 36 cc 7f be 50 16 ef
+// 00000040  06 04
+//
+// cf. correct field:
+//   0  89: SEQUENCE {
+//   2  19:   SEQUENCE {
+//   4   7:     OBJECT IDENTIFIER ecPublicKey (1 2 840 10045 2 1)
+//  13   8:     OBJECT IDENTIFIER prime256v1 (1 2 840 10045 3 1 7)
+//        :     }
+//  23  66:   BIT STRING
+//        :     04 CE 30 31 6D 5A FD D3 53 2D 54 9A 27 54 D8 7C
+//        :     D9 80 35 91 09 2D 6F 06 5A 8E E3 CB C0 01 B7 C9
+//        :     13 5D 70 D4 E5 62 F2 1B 10 93 F7 D5 77 41 BA 9D
+//        :     93 3E 18 3E 00 C6 0A 0E D2 36 CC 7F BE 50 16 EF
+//        :     06
+//        :   }
+//
+// as a short-term workaround, remove the trailing byte if:
+//   - receiving an even number of bytes == 2*prime-coordinate +2 bytes
+//   - starting byte is 04: uncompressed EC point
+//   - trailing byte is 04: assume it belongs to the next OCTET STRING
+//
+// [mis-parsing encountered with v3.5.1, 2016-10-22]
+//
+func ecpoint(p11lib *pkcs11.Ctx, session pkcs11.SessionHandle, key pkcs11.ObjectHandle) []byte {
+	template := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, nil),
+	}
+
+	attr, err := p11lib.GetAttributeValue(session, key, template)
+	if err != nil {
+		log.Fatalf("P11: get(EC point) [%s]\n", err)
+	}
+	_ = attr
+
+	// leave 'iterator' even if currently using only one entry
+	for _, a := range attr {
+		if a.Type != pkcs11.CKA_EC_POINT {
+			continue
+		}
+		fmt.Printf("attr type %d/x%x, length %d b\n", a.Type, a.Type, len(a.Value))
+		fmt.Printf("EC point:\n")
+		fmt.Printf(hex.Dump(a.Value))
+
+		// workaround, see above
+		if (0 == (len(a.Value) % 2)) && (byte(0x04) == a.Value[0]) && (byte(0x04) == a.Value[len(a.Value)-1]) {
+			return a.Value[0 : len(a.Value)-1]
+		}
+
+		return a.Value
+	}
+
+	return nil
+}
+
+// non-nil ecpt supplies EC point; nil queries EC key object
+// SKI [depending only on public key] is identical for matching keypair
+//
+// accepts 04 <X> <Y> form, or raw <X> <Y> with X,Y 00-padded to uniform size
+//
+// returns nil if format not recognized
+//
+func eckey2ski(p11lib *pkcs11.Ctx, session pkcs11.SessionHandle, key pkcs11.ObjectHandle, ecpt []byte) []byte {
+	if ecpt == nil {
+		ecpt = ecpoint(p11lib, session, key)
+	}
+
+	if ecpt != nil {
+		if 1 == len(ecpt)%2 { // strip 04 from "04 <X> <Y>"
+			if byte(0x04) == ecpt[0] {
+				ecpt = ecpt[1:]
+			} else {
+				return nil // <non-04> <X> <Y>
+			}
+		}
+
+		// hashes are unaddressable
+		// slice copy of result
+		hash := sha256.Sum256(ecpt)
+		ecpt = hash[:]
+	}
+
+	return ecpt
+}
+
+func Generate_pkcs11(int alg) (ski []byte, err error) {
+	var slot uint = 4 // ocki default
+
+	_ = alg
+	_, _ = initialize(pathOCKI)
+
+	var p11lib = loadlib()
+
+	session, _ := p11lib.OpenSession(slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
+
+	var id uint64 = next_id_ctr()
+	var ec_param_oid, _ = algconst2oid(0)
+
+	var publabel = fmt.Sprintf("BCPUB%010d", id)
+	var prvlabel = fmt.Sprintf("BCPRV%010d", id)
+
+	//	var pin = viper.GetString("security.bccsp.pkcs11.pin")
+	var pin = "31415926"
+	if pin == "" {
+		log.Fatal("P11: no PIN set\n")
+	}
+
+	p11lib.Login(session, pkcs11.CKU_USER, pin)
+	defer p11lib.Logout(session)
+
+	pubkey_t := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
+		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
+		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
+		pkcs11.NewAttribute(pkcs11.CKA_VERIFY, true),
+		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, ec_param_oid),
+
+		pkcs11.NewAttribute(pkcs11.CKA_ID, publabel),
+		pkcs11.NewAttribute(pkcs11.CKA_LABEL, publabel),
+	}
+
+	prvkey_t := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PRIVATE_KEY),
+		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
+		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
+		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
+		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
+
+		pkcs11.NewAttribute(pkcs11.CKA_ID, prvlabel),
+		pkcs11.NewAttribute(pkcs11.CKA_LABEL, prvlabel),
+
+		// WTLS attributes, not defined for other objects
+		// setting these would allow storing the SKI
+		//		pkcs11.NewAttribute(pkcs11.CKA_HASH_OF_SUBJECT_PUBLIC_KEY,
+		//                                    defaultSKI),
+		//		pkcs11.NewAttribute(pkcs11.CKA_NAME_HASH_ALGORITHM,
+		//		                    CKM_SHA256);
+	}
+
+	pub, prv, err := p11lib.GenerateKeyPair(session,
+		[]*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_EC_KEY_PAIR_GEN, nil)},
+		pubkey_t, prvkey_t)
+	if err != nil {
+		log.Fatalf("P11: keypair generate failed [%s]\n", err)
+	}
+
+	{
+		ecpt := ecpoint(p11lib, session, pub)
+		ski := eckey2ski(p11lib, session, pub, ecpt)
+
+		// save public-point <-> SKI mappings
+		ski2pubkey(ski, ecpt)
+		pubkey2ski(ecpt, ski)
+
+		// set CKA_ID of the both keys to SKI(private key)
+		//
+		setski_t := []*pkcs11.Attribute{
+			pkcs11.NewAttribute(pkcs11.CKA_ID, ski[0:SKI_BYTES]),
+		}
+		//
+		err = p11lib.SetAttributeValue(session, pub, setski_t)
+		if err != nil {
+			log.Fatalf("P11: set-ID-to-SKI[public] failed [%s]\n", err)
+		}
+		//
+		err = p11lib.SetAttributeValue(session, prv, setski_t)
+		if err != nil {
+			log.Fatalf("P11: set-ID-to-SKI[private] failed [%s]\n", err)
+		}
+
+		return ski, nil
+	}
+}
+
+//--------------------------------------
+func Sign_pkcs11(ski []byte, alg int, msg []byte) ([]byte, error) {
+	var slot uint = 4
+	var p11lib = loadlib()
+
+	var session, _ = p11lib.OpenSession(slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
+
+	p11lib.Login(session, pkcs11.CKU_USER, "31415926")
+	defer p11lib.Logout(session)
+
+	var prvh, err = ski2keyhandle(p11lib, session, ski, true /*->private*/)
+	if err != nil {
+		log.Fatalf("P11: private key not found [%s]\n", err)
+	}
+
+	err = p11lib.SignInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)},
+		prvh)
+	if err != nil {
+		log.Fatalf("P11: sign-initialize [%s]\n", err)
+	}
+
+	var sig []byte
+
+	sig, err = p11lib.Sign(session, msg)
+	if err != nil {
+		log.Fatalf("P11: sign failed [%s]\n", err)
+	}
+
+	return sig, nil
+}
+
+//--------------------------------------
+// error is nil if verified
+func Verify_pkcs11(ski []byte, alg int, msg []byte, sig []byte) error {
+	var slot uint = 4
+	var p11lib = loadlib()
+
+	var session, _ = p11lib.OpenSession(slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
+
+	p11lib.Login(session, pkcs11.CKU_USER, "31415926")
+	defer p11lib.Logout(session)
+
+	var pubh, err = ski2keyhandle(p11lib, session, ski, false /*->public*/)
+	if err != nil {
+		log.Fatalf("P11: public key not found [%s]\n", err)
+	}
+
+	err = p11lib.VerifyInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)},
+		pubh)
+	if err != nil {
+		log.Fatalf("P11: verify-initialize [%s]\n", err)
+	}
+	err = p11lib.Verify(session, msg, sig)
+	if err != nil {
+		log.Printf("P11: verify failed [%s]\n", err)
+		return err
+	}
+
+	return nil
+}
+
+//-----  /tvi's P11 stuff  ---------------------------------------------------
+
+var sha256abc = []byte("\xba\x78\x16\xbf\x8f\x01\xcf\xea\x41\x41\x40\xde\x5d\xae\x22\x23\xb0\x03\x61\xa3\x96\x17\x7a\x9c\xb4\x10\xff\x61\xf2\x00\x15\xad")
+
+func Eccycle() error {
+	var ski, err = Generate_pkcs11()
+	if err != nil {
+		log.Fatalf("P11: generate cycle failed [%s]", err)
+	}
+
+	sig, err := Sign_pkcs11(ski, 0, sha256abc)
+	if err != nil {
+		log.Fatalf("P11: sign cycle failed [%s]", err)
+	}
+	fmt.Printf("signature('abc')\n")
+	fmt.Printf(hex.Dump(sig))
+
+	err = Verify_pkcs11(ski, 0, sha256abc, sig)
+	if err != nil {
+		log.Fatalf("P11: verify[cycle] failed [%s]", err)
+	}
+
+	// cross-check: invalid signature MUST be rejected
+	// P11 MAY return both 'signature invalid' or 'size of
+	// signature invalid', which SHOULD be treated as the same
+	//
+	// TODO: we decided to return one error for these,
+	// success, or any other error [unexpected, cause for concern]
+	//
+	sig = sig[0 : len(sig)-2]
+
+	err = Verify_pkcs11(ski, 0, sha256abc, sig)
+	if err == nil {
+		log.Fatalf("P11: invalid verify not rejected [%s]", err)
+	}
+
+	return nil
 }
 
 //-----  /tvi's P11 stuff  ---------------------------------------------------
