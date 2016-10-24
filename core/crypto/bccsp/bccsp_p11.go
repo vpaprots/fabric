@@ -210,7 +210,6 @@ func generate_pkcs11() (pkcs11.ObjectHandle, pkcs11.ObjectHandle, error) {
 	if pin == "" {
 		log.Fatal("P11: no PIN set\n")
 	}
-
 	p11lib.Login(session, pkcs11.CKU_USER, pin)
 	defer p11lib.Logout(session)
 
@@ -359,12 +358,10 @@ func Generate_pkcs11(alg int) (ski []byte, err error) {
 	var publabel = fmt.Sprintf("BCPUB%010d", id)
 	var prvlabel = fmt.Sprintf("BCPRV%010d", id)
 
-	//	var pin = viper.GetString("security.bccsp.pkcs11.pin")
-	var pin = "31415926"
+	var pin = viper.GetString("security.bccsp.pkcs11.pin")
 	if pin == "" {
 		log.Fatal("P11: no PIN set\n")
 	}
-
 	p11lib.Login(session, pkcs11.CKU_USER, pin)
 	defer p11lib.Logout(session)
 
@@ -439,7 +436,8 @@ func Sign_pkcs11(ski []byte, alg int, msg []byte) ([]byte, error) {
 
 	var session, _ = p11lib.OpenSession(slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
 
-	p11lib.Login(session, pkcs11.CKU_USER, "31415926")
+	var pin = viper.GetString("security.bccsp.pkcs11.pin")
+	p11lib.Login(session, pkcs11.CKU_USER, pin)
 	defer p11lib.Logout(session)
 
 	var prvh, err = ski2keyhandle(p11lib, session, ski, true /*->private*/)
@@ -471,7 +469,10 @@ func Verify_pkcs11(ski []byte, alg int, msg []byte, sig []byte) error {
 
 	var session, _ = p11lib.OpenSession(slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
 
-	p11lib.Login(session, pkcs11.CKU_USER, "31415926")
+	var pin = viper.GetString("security.bccsp.pkcs11.pin")
+	if pin == "" {
+		log.Fatal("P11: no PIN set\n")
+	}
 	defer p11lib.Logout(session)
 
 	var pubh, err = ski2keyhandle(p11lib, session, ski, false /*->public*/)
