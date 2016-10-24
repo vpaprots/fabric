@@ -329,12 +329,18 @@ fmt.Printf("verify[1]\n")
 ver, ve := csp.Verify(key, sha256abc, sha256abc)
 fmt.Printf("verify[1]: %d,%s\n", ver, ve)
 
+fmt.Printf("verify[2]\n")
+ver, ve = csp.Verify(key, sha256abc, append(sha256abc, sha256abc...))
+fmt.Printf("verify[2]: %d,%s\n", ver, ve)
+
+if (false) {
 sig, se := csp.Sign(key, sha256abc, nil)
 _ = se
         fmt.Printf("signature('abc')\n");
         fmt.Printf(hex.Dump(sig))
+}
 
-ver, err := csp.Verify(key, sha256abc, sig)
+ver, err := csp.Verify(key, sha256abc, sha256abc)
 fmt.Printf("verify: %d,%s\n", ver, err)
 }
 
