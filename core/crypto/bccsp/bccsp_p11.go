@@ -550,6 +550,10 @@ func (csp *P11BCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 //		generate_pkcs11()
 //		_ = Eccycle()
 		ski, err := Generate_pkcs11(0)
+		_ = ski
+		if err != nil {
+			return nil, fmt.Errorf("Failed ECDSA key.gen [%s]", err)
+		}
 
 //		p11ECDSAPrivateKey k
 			// retain keytype

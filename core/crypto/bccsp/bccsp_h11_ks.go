@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
-	"github.com/miekg/pkcs11"
+// VT	"github.com/miekg/pkcs11"
 )
 
 type h11BCCSPKeyStore struct {
@@ -129,22 +129,26 @@ func (ks *h11BCCSPKeyStore) loadPrivateKey(alias string) (interface{}, error) {
 
 func (ks *h11BCCSPKeyStore) loadPrivateKey2(alias string) (interface{}, error) {
 	
-	template := []*pkcs11.Attribute{pkcs11.NewAttribute(pkcs11.CKA_LABEL, alias)}
-	if err := ks.csp.ctx.FindObjectsInit(ks.csp.session, template); err != nil {
-		h11BCCSPLog.Errorf("Failed to FindObjectsInit: %s\n", err)
-		return nil, err
-	}
-	obj, b, err := ks.csp.ctx.FindObjects(ks.csp.session, 2)
-	if err != nil {
-		h11BCCSPLog.Errorf("Failed to FindObjects: %s %v\n", err, b)
-		return nil, err
-	}
-	if err := ks.csp.ctx.FindObjectsFinal(ks.csp.session); err != nil {
-		h11BCCSPLog.Errorf("Failed to FindObjectsFinal: %s\n", err)
-		return nil, err
-	}
+	// VT template := []*pkcs11.Attribute{pkcs11.NewAttribute(pkcs11.CKA_LABEL, alias)}
+// VT	if err := ks.csp.ctx.FindObjectsInit(ks.csp.session, template); err != nil {
+//	if nil {
+//		h11BCCSPLog.Errorf("Failed to FindObjectsInit: %s\n", err)
+//		return nil, err
+//	}
+//	obj, b, err := ks.csp.ctx.FindObjects(ks.csp.session, 2)
+//	err := 0
+//	if err != nil {
+//		h11BCCSPLog.Errorf("Failed to FindObjects: %s %v\n", err, b)
+//		return nil, err
+//	}
+//	if err := ks.csp.ctx.FindObjectsFinal(ks.csp.session); err != nil {
+//		h11BCCSPLog.Errorf("Failed to FindObjectsFinal: %s\n", err)
+//		return nil, err
+//	}
 	
-	return &h11ECDSAPrivateKey{nil, obj[0]/*privateP11Key*/, obj[1] /*publicP11Key*/, alias}, nil
+//	return &h11ECDSAPrivateKey{nil, obj[0]/*privateP11Key*/, obj[1] /*publicP11Key*/, alias}, nil
+	return &h11ECDSAPrivateKey{nil, 0/*privateP11Key*/, 0/*publicP11Key*/, alias}, nil
+// /VT
 }
 
 func (ks *h11BCCSPKeyStore) storePublicKey(alias string, publicKey interface{}) error {
