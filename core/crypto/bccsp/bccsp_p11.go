@@ -201,7 +201,7 @@ func generate_pkcs11() (pkcs11.ObjectHandle, pkcs11.ObjectHandle, error) {
 	session, _ := p11lib.OpenSession(slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
 
 	var id uint64 = next_id_ctr()
-	var ec_param_oid = algconst2oid(0)
+	var ec_param_oid = algconst2oid(256)
 
 	var publabel = fmt.Sprintf("BCPUB%010d", id)
 	var prvlabel = fmt.Sprintf("BCPRV%010d", id)
@@ -350,13 +350,19 @@ func Generate_pkcs11(alg int) (ski []byte, err error) {
 
 	var p11lib = loadlib()
 
+	p11lib.Initialize()
+	defer p11lib.Destroy()
+	defer p11lib.Finalize()
+
 	session, _ := p11lib.OpenSession(slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
 
 	var id uint64 = next_id_ctr()
-	var ec_param_oid = algconst2oid(0)
+	var ec_param_oid = algconst2oid(256)
 
 	var publabel = fmt.Sprintf("BCPUB%010d", id)
 	var prvlabel = fmt.Sprintf("BCPRV%010d", id)
+	_ = publabel
+	_ = prvlabel
 
 	var pin = viper.GetString("security.bccsp.pkcs11.pin")
 	if pin == "" {
@@ -372,19 +378,19 @@ func Generate_pkcs11(alg int) (ski []byte, err error) {
 		pkcs11.NewAttribute(pkcs11.CKA_VERIFY, true),
 		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, ec_param_oid),
 
-		pkcs11.NewAttribute(pkcs11.CKA_ID, publabel),
-		pkcs11.NewAttribute(pkcs11.CKA_LABEL, publabel),
+//		pkcs11.NewAttribute(pkcs11.CKA_ID, publabel),
+//		pkcs11.NewAttribute(pkcs11.CKA_LABEL, publabel),
 	}
 
 	prvkey_t := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PRIVATE_KEY),
 		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
-		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
+//		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
 		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
 
-		pkcs11.NewAttribute(pkcs11.CKA_ID, prvlabel),
-		pkcs11.NewAttribute(pkcs11.CKA_LABEL, prvlabel),
+//		pkcs11.NewAttribute(pkcs11.CKA_ID, prvlabel),
+//		pkcs11.NewAttribute(pkcs11.CKA_LABEL, prvlabel),
 
 		// WTLS attributes, not defined for other objects
 		// setting these would allow storing the SKI
@@ -548,17 +554,21 @@ func (csp *P11BCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 		// generate an ECDSA key through P11
 		// ...which will then be discarded...
 		//
-//		generate_pkcs11()
-//		_ = Eccycle()
 		ski, err := Generate_pkcs11(0)
-		_ = ski
 		if err != nil {
 			return nil, fmt.Errorf("Failed ECDSA key.gen [%s]", err)
 		}
+		fmt.Printf("generated SKI:\n")
+		fmt.Printf(hex.Dump(ski))
 
-//		p11ECDSAPrivateKey k
+		k = &p11ECDSAPrivateKey{nil, "", ski}
+//		var k p11ECDSAPrivateKey
 			// retain keytype
 /*
+	k *ecdsa.PrivateKey
+	tokenLabel string
+	ski []byte
+
 		lowLevelKey, err := primitives.NewECDSAKey()
 		if err != nil {
 			return nil, fmt.Errorf("Failed generating ECDSA key [%s]", err)
