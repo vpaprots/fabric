@@ -12,11 +12,12 @@ import (
 	"strings"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
+	"github.com/miekg/pkcs11"
 )
 
 type h11BCCSPKeyStore struct {
 	conf *h11BCCSPConfiguration
-
+	csp  *HSMBasedBCCSP
 	isOpen bool
 
 	pwd []byte
@@ -25,7 +26,7 @@ type h11BCCSPKeyStore struct {
 	m sync.Mutex
 }
 
-func (ks *h11BCCSPKeyStore) init(pwd []byte) error {
+func (ks *h11BCCSPKeyStore) init(csp *HSMBasedBCCSP, pwd []byte) error {
 	ks.m.Lock()
 	defer ks.m.Unlock()
 
@@ -50,6 +51,8 @@ func (ks *h11BCCSPKeyStore) init(pwd []byte) error {
 	if err != nil {
 		return err
 	}
+	
+	ks.csp = csp
 
 	return nil
 }
@@ -74,6 +77,10 @@ func (ks *h11BCCSPKeyStore) getSuffix(alias string) string {
 }
 
 func (ks *h11BCCSPKeyStore) storePrivateKey2(alias string, privateKey interface{}) error {
+	
+	// Key already stored in the Opencryptoki keystore under 'alias' token
+	// This is a emptt file to track ski type and debug
+	
 	err := ioutil.WriteFile(ks.conf.getPathForAlias(alias, "sk"), nil, 0700)
 	if err != nil {
 		h11BCCSPLog.Errorf("Failed storing private key [%s]: [%s]", alias, err)
@@ -118,6 +125,26 @@ func (ks *h11BCCSPKeyStore) loadPrivateKey(alias string) (interface{}, error) {
 	}
 
 	return privateKey, nil
+}
+
+func (ks *h11BCCSPKeyStore) loadPrivateKey2(alias string) (interface{}, error) {
+	
+	template := []*pkcs11.Attribute{pkcs11.NewAttribute(pkcs11.CKA_LABEL, alias)}
+	if err := ks.csp.ctx.FindObjectsInit(ks.csp.session, template); err != nil {
+		h11BCCSPLog.Errorf("Failed to FindObjectsInit: %s\n", err)
+		return nil, err
+	}
+	obj, b, err := ks.csp.ctx.FindObjects(ks.csp.session, 2)
+	if err != nil {
+		h11BCCSPLog.Errorf("Failed to FindObjects: %s %v\n", err, b)
+		return nil, err
+	}
+	if err := ks.csp.ctx.FindObjectsFinal(ks.csp.session); err != nil {
+		h11BCCSPLog.Errorf("Failed to FindObjectsFinal: %s\n", err)
+		return nil, err
+	}
+	
+	return &h11ECDSAPrivateKey{nil, obj[0]/*privateP11Key*/, obj[1] /*publicP11Key*/, alias}, nil
 }
 
 func (ks *h11BCCSPKeyStore) storePublicKey(alias string, publicKey interface{}) error {

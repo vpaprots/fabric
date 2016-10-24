@@ -33,12 +33,12 @@ func (f *HSMBasedBCCSPFactory) Get(opts FactoryOpts) (BCCSP, error) {
 	if !opts.Ephemeral() {
 		f.defaultBCCSPInitOnce.Do(func() {
 			ks := &h11BCCSPKeyStore{}
-			if err := ks.init(nil); err != nil {
+			csp := &HSMBasedBCCSP{}
+			if err := ks.init(csp, nil); err != nil {
 				f.defaultBCCSPError = fmt.Errorf("Failed initializing key store [%s]", err)
 				return
 			}
-			csp := &HSMBasedBCCSP{ks, nil, nil}
-			if err := csp.init(); err != nil {
+			if err := csp.init(ks); err != nil {
 				f.defaultBCCSPError = fmt.Errorf("Failed initializing HSMBasedBCCSP [%s]", err)
 				return
 			}
@@ -49,11 +49,12 @@ func (f *HSMBasedBCCSPFactory) Get(opts FactoryOpts) (BCCSP, error) {
 	}
 
 	ks := &h11BCCSPKeyStore{}
-	if err := ks.init(nil); err != nil {
+	csp := &HSMBasedBCCSP{}
+	if err := ks.init(csp, nil); err != nil {
 		return nil, fmt.Errorf("Failed initializing key store [%s]", err)
 	}
-	csp := &HSMBasedBCCSP{ks, nil, nil}
-	if err := csp.init(); err != nil {
+	
+	if err := csp.init(ks); err != nil {
 		return nil, fmt.Errorf("Failed initializing HSMBasedBCCSP [%s]", err)
 	}
 	return csp, nil
