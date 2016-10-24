@@ -826,7 +826,7 @@ func (csp *P11BCCSP) Sign(k Key, digest []byte, opts SignerOpts) (signature []by
 	// Check key type
 	switch k.(type) {
 	case *swECDSAPrivateKey:
-		return Sign_pkcs11(k, 0, digest)
+		return Sign_pkcs11(k.GetSKI(), 0, digest)
 //		return k.(*swECDSAPrivateKey).k.Sign(rand.Reader, digest, nil)
 	default:
 		return nil, fmt.Errorf("Key type not recognized [%s]", k)
@@ -855,7 +855,7 @@ func (csp *P11BCCSP) Verify(k Key, signature, digest []byte) (valid bool, err er
 			return false, fmt.Errorf("Failed unmashalling signature [%s]", err)
 		}
 
-		err = Verify_pkcs11(k, 0, digest, signature)
+		err = Verify_pkcs11(k.GetSKI(), 0, digest, signature)
 		if err == nil {
 		}
 		return true, nil
