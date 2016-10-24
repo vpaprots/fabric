@@ -183,7 +183,7 @@ fmt.Printf(hex.Dump(ski))
 	}
 
 	if len(objs) == 0 {
-		return noHandle, fmt.Errorf("P11: private key not found")
+		return noHandle, fmt.Errorf("P11: key not found")
 	}
 
 	return objs[0], nil
@@ -383,7 +383,10 @@ func Generate_pkcs11(alg int) (ski []byte, err error) {
 	if pin == "" {
 		log.Fatal("P11: no PIN set\n")
 	}
-	p11lib.Login(session, pkcs11.CKU_USER, pin)
+	err = p11lib.Login(session, pkcs11.CKU_USER, pin)
+	if err != nil {
+		log.Fatalf("P11: login failed [%s]\n", err)
+	}
 	defer p11lib.Logout(session)
 
 	pubkey_t := []*pkcs11.Attribute{
@@ -401,7 +404,7 @@ func Generate_pkcs11(alg int) (ski []byte, err error) {
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PRIVATE_KEY),
 		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
-		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
+		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, false),   // XXX
 		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
 
 		pkcs11.NewAttribute(pkcs11.CKA_ID, prvlabel),
@@ -467,13 +470,16 @@ func Sign_pkcs11(ski []byte, alg int, msg []byte) ([]byte, error) {
 	if pin == "" {
 		log.Fatal("P11: no PIN set\n")
 	}
-	p11lib.Login(session, pkcs11.CKU_USER, pin)
+	err := p11lib.Login(session, pkcs11.CKU_USER, pin)
+	if err != nil {
+		log.Fatal("P11: login failed\n")
+	}
 	defer p11lib.Logout(session)
 
-	fmt.Printf("SKI(sign)\n")
-	fmt.Printf(hex.Dump(ski))
+fmt.Printf("SKI(sign)\n")
+fmt.Printf(hex.Dump(ski))
 
-	var prvh, err = ski2keyhandle(p11lib, session, ski, true /*->private*/)
+	prvh, err := ski2keyhandle(p11lib, session, ski, true, /*->private*/)
 	if err != nil {
 		log.Fatalf("P11: private key not found [%s]\n", err)
 	}
@@ -499,6 +505,10 @@ func Sign_pkcs11(ski []byte, alg int, msg []byte) ([]byte, error) {
 func Verify_pkcs11(ski []byte, alg int, msg []byte, sig []byte) error {
 	var slot uint = 4
 	var p11lib = loadlib()
+
+	p11lib.Initialize()
+	defer p11lib.Destroy()
+	defer p11lib.Finalize()
 
 	var session, _ = p11lib.OpenSession(slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
 
