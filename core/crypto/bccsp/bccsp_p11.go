@@ -376,8 +376,6 @@ func Generate_pkcs11(alg int) (ski []byte, err error) {
 
 	var publabel = fmt.Sprintf("BCPUB%010d", id)
 	var prvlabel = fmt.Sprintf("BCPRV%010d", id)
-	_ = publabel
-	_ = prvlabel
 
 	var pin = viper.GetString("security.bccsp.pkcs11.pin")
 	if pin == "" {
@@ -393,8 +391,8 @@ func Generate_pkcs11(alg int) (ski []byte, err error) {
 		pkcs11.NewAttribute(pkcs11.CKA_VERIFY, true),
 		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, ec_param_oid),
 
-//		pkcs11.NewAttribute(pkcs11.CKA_ID, publabel),
-//		pkcs11.NewAttribute(pkcs11.CKA_LABEL, publabel),
+		pkcs11.NewAttribute(pkcs11.CKA_ID, publabel),
+		pkcs11.NewAttribute(pkcs11.CKA_LABEL, publabel),
 	}
 
 	prvkey_t := []*pkcs11.Attribute{
@@ -404,8 +402,8 @@ func Generate_pkcs11(alg int) (ski []byte, err error) {
 //		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
 		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
 
-//		pkcs11.NewAttribute(pkcs11.CKA_ID, prvlabel),
-//		pkcs11.NewAttribute(pkcs11.CKA_LABEL, prvlabel),
+		pkcs11.NewAttribute(pkcs11.CKA_ID, prvlabel),
+		pkcs11.NewAttribute(pkcs11.CKA_LABEL, prvlabel),
 
 		// WTLS attributes, not defined for other objects
 		// setting these would allow storing the SKI
@@ -455,11 +453,21 @@ func Sign_pkcs11(ski []byte, alg int, msg []byte) ([]byte, error) {
 	var slot uint = 4
 	var p11lib = loadlib()
 
+	p11lib.Initialize()
+	defer p11lib.Destroy()
+	defer p11lib.Finalize()
+
 	var session, _ = p11lib.OpenSession(slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
 
 	var pin = viper.GetString("security.bccsp.pkcs11.pin")
+	if pin == "" {
+		log.Fatal("P11: no PIN set\n")
+	}
 	p11lib.Login(session, pkcs11.CKU_USER, pin)
 	defer p11lib.Logout(session)
+
+	fmt.Printf("SKI(sign)\n")
+	fmt.Printf(hex.Dump(ski))
 
 	var prvh, err = ski2keyhandle(p11lib, session, ski, true /*->private*/)
 	if err != nil {
@@ -494,6 +502,7 @@ func Verify_pkcs11(ski []byte, alg int, msg []byte, sig []byte) error {
 	if pin == "" {
 		log.Fatal("P11: no PIN set\n")
 	}
+	p11lib.Login(session, pkcs11.CKU_USER, pin)
 	defer p11lib.Logout(session)
 
 	var pubh, err = ski2keyhandle(p11lib, session, ski, false /*->public*/)
@@ -831,9 +840,8 @@ func (csp *P11BCCSP) Sign(k Key, digest []byte, opts SignerOpts) (signature []by
 
 	// Check key type
 	switch k.(type) {
-	case *swECDSAPrivateKey:
+	case *p11ECDSAPrivateKey:
 		return Sign_pkcs11(k.GetSKI(), 0, digest)
-//		return k.(*swECDSAPrivateKey).k.Sign(rand.Reader, digest, nil)
 	default:
 		return nil, fmt.Errorf("Key type not recognized [%s]", k)
 	}
