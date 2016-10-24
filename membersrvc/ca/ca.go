@@ -33,7 +33,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"encoding/hex"    // VT
 
 	gp "google/protobuf"
 
@@ -321,9 +320,6 @@ func (ca *CA) createCAKeyPair(name string) bccsp.Key {
 	if err != nil {
 		caLogger.Panicf("Failed generating CA key [%s]", err)
 	}
-
-	fmt.Printf("createCAKeyPair: returned key identified by SKI:\n")
-	fmt.Printf(hex.Dump(key.GetSKI()))
 
 	err = ioutil.WriteFile(ca.path+"/"+name+".ski", key.GetSKI(), 0644)
 	if err != nil {
