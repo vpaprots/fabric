@@ -1,5 +1,27 @@
 package bccsp
 
+// PKCS11 assumptions, with some based on Opencryptoki[ocki]
+//
+// - store SKI into CKA_ID; value matches for public/private halves of keypair
+//   - sign/verify is indexed through SKI -> CKA_ID, see ski2keyhandle()
+//   - we do not validate or re-calculate CKA_IDs we find
+//   - a corresponding counter is inserted as CKA_LABEL
+// - key generate and sign/verify MAY be separated 
+//   - this precludes use of session objects, if the session may be terminated
+//     - token objects may proliferate, need garbage collection [as with ICSF]
+//   - may be able to preempt [maintain persistent connection to ocki?]
+//   - reasonable session caching could save intervening getsession calls
+//     - ocki does support multi-sessions
+// - we do not expect CKA_EC_POINT to be set for EC private keys
+//   - this is discussed as potential extension, non-standard, see:
+//     https://wiki.oasis-open.org/pkcs11/DocumentClarifications [2016-10-23]
+//     - there are already PKCS11 providers supplying it
+// - assume login is required, without checking; PIN retrieved from settings
+//   - ocki creates EP11-backed slots this way
+// - assume publickey-to-SKI and SKI-to-publickey hashtables may grow
+//   - ...we do not attempt to control their size
+
+
 import (
 	"crypto/ecdsa"
 	"crypto/rand"
@@ -94,7 +116,7 @@ var id_ctr uint64
 
 //--------------------------------------
 // caller must check for non-repeating ID, we just supply unique ctr here
-// TODO: cross-image unicity
+// TODO: cross-image unicity [shall we pick this base/range from settings?]
 func next_id_ctr() uint64 {
 	return atomic.AddUint64(&id_ctr, 1)
 }
@@ -102,12 +124,17 @@ func next_id_ctr() uint64 {
 //--------------------------------------
 func algconst2oid(alg int) (oid []byte) {
 	switch alg {
-	//      case:
-	//              return oid_ec_P384, nil
-	//              return oid_ec_P512, nil
+	case 384:
+		return []byte("\x06\x05\x2b\x81\x04\x00\x22")
+			// NIST P-384
+
 	default:
+	case 0:
+	case 256:
 		return []byte("\x06\x08\x2a\x86\x48\xce\x3d\x03\x01\x07")
+			// NIST P-256
 	}
+	return []byte("never reached")
 }
 
 //--------------------------------------
