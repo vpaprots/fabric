@@ -163,6 +163,7 @@ func ski2keyhandle(mod *pkcs11.Ctx, session pkcs11.SessionHandle, ski []byte, is
 	}
 fmt.Printf("SKI(find)\n")
 fmt.Printf(hex.Dump(ski))
+_ = ktype
 
 	template := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, ktype),
@@ -345,7 +346,7 @@ func generate_pkcs11(alg int) (ski []byte, err error) {
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PRIVATE_KEY),
 		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
-		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, false),
+		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
 		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
 
 		pkcs11.NewAttribute(pkcs11.CKA_ID, prvlabel),
@@ -429,7 +430,8 @@ fmt.Printf(hex.Dump(ski))
 
 	prvh, err := ski2keyhandle(p11lib, session, ski, true, /*->private*/)
 	if err != nil {
-		log.Fatalf("P11: private key not found [%s]\n", err)
+		fmt.Printf("P11: private key not found [%s]\n", err)
+return nil, err
 	}
 
 	err = p11lib.SignInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)},

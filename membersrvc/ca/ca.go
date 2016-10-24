@@ -329,12 +329,10 @@ _, _ = csp.Verify(key, sha256abc, sha256abc)
 
 _, _ = csp.Verify(key, sha256abc, append(sha256abc, sha256abc...))
 
-if (false) {
 sig, se := csp.Sign(key, sha256abc, nil)
 _ = se
         fmt.Printf("signature('abc')\n");
         fmt.Printf(hex.Dump(sig))
-}
 
 _, _ = csp.Verify(key, sha256abc, sha256abc)
 }
