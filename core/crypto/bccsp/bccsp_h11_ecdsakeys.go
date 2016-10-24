@@ -33,7 +33,8 @@ func (k *h11ECDSAPrivateKey) GetSKI() (ski []byte) {
 
 // <VP> GetSKI returns the subject key identifier of this key.
 func (k *h11ECDSAPrivateKey) GetSKI2() (ski []byte) {
-	return k.tokenLabel.Bytes()
+	return []byte("VT")
+//	return k.tokenLabel.Bytes()
 }
 
 // Symmetric returns true if this key is a symmetric key,

@@ -181,6 +181,7 @@ func (csp *HSMBasedBCCSP) KeyDeriv(k Key, opts KeyDerivOpts) (dk Key, err error)
 		}
 
 		ecdsaK := k.(*h11ECDSAPrivateKey)
+		_ = ecdsaK             // VT
 
 		switch opts.(type) {
 
@@ -370,7 +371,9 @@ func (csp *HSMBasedBCCSP) GetKey(ski []byte) (k Key, err error) {
 		case h11ECDSAPrivateKey:
 			return key2.(*h11ECDSAPrivateKey), nil;
 		case *ecdsa.PrivateKey: //pkcs11.ObjectHandle <VP>
-			return &h11ECDSAPrivateKey{key.(*ecdsa.PrivateKey), key2.(*h11ECDSAPrivateKey).privateP11Key, key2.(*h11ECDSAPrivateKey).publicP11Key, hex.EncodeToString(ski)}, nil
+			// VT
+			return nil, nil
+//			return &h11ECDSAPrivateKey{key.(*ecdsa.PrivateKey), key2.(*h11ECDSAPrivateKey).privateP11Key, key2.(*h11ECDSAPrivateKey).publicP11Key, hex.EncodeToString(ski)}, nil
 		default:
 			return nil, errors.New("Key type not recognized")
 		}
