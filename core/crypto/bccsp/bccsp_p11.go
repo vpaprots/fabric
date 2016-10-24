@@ -159,10 +159,10 @@ func ski2keyhandle(mod *pkcs11.Ctx, session pkcs11.SessionHandle, ski []byte, is
 	var ktype = pkcs11.CKO_PUBLIC_KEY
 
 	if (is_private) {
-fmt.Printf("searching for private key")
+fmt.Printf("searching for private key\n")
 		ktype = pkcs11.CKO_PRIVATE_KEY
 	} else {
-fmt.Printf("searching for public key")
+fmt.Printf("searching for public key\n")
 }
 
 	template := []*pkcs11.Attribute{
@@ -383,34 +383,6 @@ func generate_pkcs11(alg int) (ski []byte, err error) {
 	if err != nil {
 		log.Fatalf("P11: keypair generate failed [%s]\n", err)
 	}
-{
-{
-	template := []*pkcs11.Attribute{
-		pkcs11.NewAttribute(pkcs11.CKA_CLASS, nil),
-	}
-	attr, err := p11lib.GetAttributeValue(session, prv, template)
-	if err != nil {
-		log.Fatalf("P11: GAV [%s]\n", err)
-	}
-	// leave 'iterator' even if currently using only one entry
-	for _, a := range attr {
-		fmt.Printf("prv: attr type %d/x%x, length %d b, %d\n", a.Type, a.Type, len(a.Value), a.Value)
-}
-}
-{
-	template := []*pkcs11.Attribute{
-		pkcs11.NewAttribute(pkcs11.CKA_CLASS, nil),
-	}
-	attr, err := p11lib.GetAttributeValue(session, pub, template)
-	if err != nil {
-		log.Fatalf("P11: GAV [%s]\n", err)
-	}
-	// leave 'iterator' even if currently using only one entry
-	for _, a := range attr {
-		fmt.Printf("pub: attr type %d/x%x, length %d b, %d\n", a.Type, a.Type, len(a.Value), a.Value)
-}
-}
-}
 	{
 		ecpt := ecpoint(p11lib, session, pub)
 		ski := eckey2ski(p11lib, session, pub, ecpt)
@@ -434,34 +406,6 @@ func generate_pkcs11(alg int) (ski []byte, err error) {
 		if err != nil {
 			log.Fatalf("P11: set-ID-to-SKI[private] failed [%s]\n", err)
 		}
-{
-{
-	template := []*pkcs11.Attribute{
-		pkcs11.NewAttribute(pkcs11.CKA_CLASS, nil),
-	}
-	attr, err := p11lib.GetAttributeValue(session, prv, template)
-	if err != nil {
-		log.Fatalf("P11: GAV [%s]\n", err)
-	}
-	// leave 'iterator' even if currently using only one entry
-	for _, a := range attr {
-		fmt.Printf("prv: attr type %d/x%x, length %d b, %d\n", a.Type, a.Type, len(a.Value), a.Value)
-}
-}
-{
-	template := []*pkcs11.Attribute{
-		pkcs11.NewAttribute(pkcs11.CKA_CLASS, nil),
-	}
-	attr, err := p11lib.GetAttributeValue(session, pub, template)
-	if err != nil {
-		log.Fatalf("P11: GAV [%s]\n", err)
-	}
-	// leave 'iterator' even if currently using only one entry
-	for _, a := range attr {
-		fmt.Printf("pub: attr type %d/x%x, length %d b, %d\n", a.Type, a.Type, len(a.Value), a.Value)
-}
-}
-}
 
 		return ski, nil
 	}
