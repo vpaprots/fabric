@@ -161,6 +161,8 @@ func ski2keyhandle(mod *pkcs11.Ctx, session pkcs11.SessionHandle, ski []byte, is
 	if (is_private) {
 		ktype = pkcs11.CKO_PRIVATE_KEY
 	}
+fmt.Printf("SKI(find)\n")
+fmt.Printf(hex.Dump(ski))
 
 	template := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, ktype),
@@ -399,7 +401,7 @@ func Generate_pkcs11(alg int) (ski []byte, err error) {
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PRIVATE_KEY),
 		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
-//		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
+		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
 		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
 
 		pkcs11.NewAttribute(pkcs11.CKA_ID, prvlabel),
@@ -427,6 +429,8 @@ func Generate_pkcs11(alg int) (ski []byte, err error) {
 		// save public-point <-> SKI mappings
 		ski2pubkey(ski, ecpt)
 		pubkey2ski(ecpt, ski)
+fmt.Printf("SKI(set)\n")
+fmt.Printf(hex.Dump(ski))
 
 		// set CKA_ID of the both keys to SKI(private key)
 		//
@@ -587,7 +591,22 @@ func (csp *P11BCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 
 		kpub := &p11ECDSAPublicKey{ski2spki(ski), "", ski}
 		k = &p11ECDSAPrivateKey{kpub, "", ski}
+
+{
+	sig, err := Sign_pkcs11(k.GetSKI(), 0, sha256abc)
+	if err != nil {
+		log.Fatalf("P11: sign cycle failed [%s]", err)
+	}
+	fmt.Printf("signature('abc')\n")
+	fmt.Printf(hex.Dump(sig))
+
+	err = Verify_pkcs11(ski, 0, sha256abc, sig)
+	if err != nil {
+		log.Fatalf("P11: verify[cycle] failed [%s]", err)
+	}
+}
 		return k, nil
+
 	case "AES_256":
 		lowLevelKey, err := primitives.GenAESKey()
 
