@@ -343,6 +343,27 @@ func eckey2ski(p11lib *pkcs11.Ctx, session pkcs11.SessionHandle, key pkcs11.Obje
 	return ecpt
 }
 
+var ec_p256_spkibase = []byte("\x30\x59\x30\x13\x06\x07\x2a\x86\x48\xce\x3d\x02\x01\x06\x08\x2a\x86\x48\xce\x3d\x03\x01\x07\x03\x42\x00")
+
+// returns nil if SKI not yet known
+// XXX restricted to EC/P256
+func ski2spki(ski []byte) []byte {
+	fmt.Printf("SKI?\n")
+	fmt.Printf(hex.Dump(ski))
+
+	ski = ski2pubkey(ski, nil)
+	if nil != ski {
+		fmt.Printf("SPKI/0\n")
+		fmt.Printf(hex.Dump(ski))
+
+			// SPKI base for EC-P256
+		ski = append(ec_p256_spkibase, ski...)
+		fmt.Printf("SPKI/1\n")
+		fmt.Printf(hex.Dump(ski))
+	}
+	return ski
+}
+
 func Generate_pkcs11(alg int) (ski []byte, err error) {
 	var slot uint = 4 // ocki default
 
@@ -558,35 +579,11 @@ func (csp *P11BCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("Failed ECDSA key.gen [%s]", err)
 		}
-		fmt.Printf("generated SKI:\n")
+		fmt.Printf("P11: generated SKI:\n")
 		fmt.Printf(hex.Dump(ski))
 
-		k = &p11ECDSAPrivateKey{nil, "", ski}
-//		var k p11ECDSAPrivateKey
-			// retain keytype
-/*
-	k *ecdsa.PrivateKey
-	tokenLabel string
-	ski []byte
-
-		lowLevelKey, err := primitives.NewECDSAKey()
-		if err != nil {
-			return nil, fmt.Errorf("Failed generating ECDSA key [%s]", err)
-		}
-
-		k = &swECDSAPrivateKey{lowLevelKey}
-
-		// If the key is not Ephemeral, store it.
-		if !opts.Ephemeral() {
-			// Store the key
-			err = csp.ks.storePrivateKey(hex.EncodeToString(k.GetSKI()), lowLevelKey)
-			if err != nil {
-				return nil, fmt.Errorf("Failed storing ECDSA key [%s]", err)
-			}
-		}
-*/
-			// the P11 provider has stored the key after key.gen
-			// no need for explicit save
+		kpub := &p11ECDSAPublicKey{ski2spki(ski), "", ski}
+		k = &p11ECDSAPrivateKey{kpub, "", ski}
 		return k, nil
 	case "AES_256":
 		lowLevelKey, err := primitives.GenAESKey()
