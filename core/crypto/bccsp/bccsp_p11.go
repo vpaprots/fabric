@@ -348,17 +348,11 @@ var ec_p256_spkibase = []byte("\x30\x59\x30\x13\x06\x07\x2a\x86\x48\xce\x3d\x02\
 // returns nil if SKI not yet known
 // XXX restricted to EC/P256
 func ski2spki(ski []byte) []byte {
-	fmt.Printf("SKI?\n")
-	fmt.Printf(hex.Dump(ski))
-
 	ski = ski2pubkey(ski, nil)
 	if nil != ski {
-		fmt.Printf("SPKI/0\n")
-		fmt.Printf(hex.Dump(ski))
-
 			// SPKI base for EC-P256
 		ski = append(ec_p256_spkibase, ski...)
-		fmt.Printf("SPKI/1\n")
+		fmt.Printf("EC-SPKI\n")
 		fmt.Printf(hex.Dump(ski))
 	}
 	return ski
