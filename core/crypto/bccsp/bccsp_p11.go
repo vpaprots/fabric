@@ -455,11 +455,12 @@ fmt.Printf(hex.Dump(ski))
 			log.Fatalf("P11: set-ID-to-SKI[private] failed [%s]\n", err)
 		}
 
-	skh, ske := ski2keyhandle(p11lib, session, ski, false, /*->private*/)
+/* XXX VT
+	skh, ske := ski2keyhandle(p11lib, session, ski, false,)
 	if ske != nil {
 		log.Fatalf("P11: prvkey/1 not found [%s]\n", ske)
 	}
-	fmt.Printf("XXX[%d]", skh)
+*/
 
 		return ski, nil
 	}
@@ -518,6 +519,8 @@ func Verify_pkcs11(ski []byte, alg int, msg []byte, sig []byte) error {
 	p11lib.Initialize()
 	defer p11lib.Destroy()
 	defer p11lib.Finalize()
+fmt.Printf("SKI(verify)\n")
+fmt.Printf(hex.Dump(ski))
 
 	var session, _ = p11lib.OpenSession(slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
 
@@ -528,21 +531,25 @@ func Verify_pkcs11(ski []byte, alg int, msg []byte, sig []byte) error {
 	p11lib.Login(session, pkcs11.CKU_USER, pin)
 	defer p11lib.Logout(session)
 
+fmt.Printf("verify3\n");
 	var pubh, err = ski2keyhandle(p11lib, session, ski, false /*->public*/)
 	if err != nil {
 		log.Fatalf("P11: public key not found [%s]\n", err)
 	}
 
+fmt.Printf("verify2\n");
 	err = p11lib.VerifyInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)},
 		pubh)
 	if err != nil {
 		log.Fatalf("P11: verify-initialize [%s]\n", err)
 	}
 	err = p11lib.Verify(session, msg, sig)
+fmt.Printf("verify2 %s\n", err);
 	if err != nil {
 		log.Printf("P11: verify failed [%s]\n", err)
 		return err
 	}
+fmt.Printf("verify1\n");
 
 	return nil
 }
@@ -612,14 +619,16 @@ func (csp *P11BCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 		k = &p11ECDSAPrivateKey{kpub, "", ski}
 
 {
+if (false) {
 	sig, err := Sign_pkcs11(k.GetSKI(), 0, sha256abc)
 	if err != nil {
 		log.Fatalf("P11: sign cycle failed [%s]", err)
 	}
 	fmt.Printf("signature('abc')\n")
 	fmt.Printf(hex.Dump(sig))
+}
 
-	err = Verify_pkcs11(ski, 0, sha256abc, sig)
+	err = Verify_pkcs11(ski, 0, sha256abc, sha256abc)
 	if err != nil {
 		log.Fatalf("P11: verify[cycle] failed [%s]", err)
 	}
@@ -888,6 +897,7 @@ func (csp *P11BCCSP) Sign(k Key, digest []byte, opts SignerOpts) (signature []by
 // Verify verifies signature against key k and digest
 func (csp *P11BCCSP) Verify(k Key, signature, digest []byte) (valid bool, err error) {
 	// Validate arguments
+fmt.Printf("verify5\n");
 	if k == nil {
 		return false, errors.New("Invalid key. Nil.")
 	}
@@ -898,6 +908,7 @@ func (csp *P11BCCSP) Verify(k Key, signature, digest []byte) (valid bool, err er
 		return false, errors.New("Invalid digest. Zero length.")
 	}
 
+fmt.Printf("verify4\n");
 	// Check key type
 	switch k.(type) {
 	case *p11ECDSAPrivateKey:
@@ -909,7 +920,7 @@ func (csp *P11BCCSP) Verify(k Key, signature, digest []byte) (valid bool, err er
 		}
 
 		err = Verify_pkcs11(k.GetSKI(), 0, digest, signature)
-		if err == nil {
+		if err != nil {
 		}
 		return true, nil
 	default:
