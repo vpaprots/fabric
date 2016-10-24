@@ -6,10 +6,14 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
+	"github.com/miekg/pkcs11"
 )
 
 type h11ECDSAPrivateKey struct {
 	k *ecdsa.PrivateKey
+	privateP11Key pkcs11.ObjectHandle
+	pubicP11Key pkcs11.ObjectHandle
+	tokenLabel string
 }
 
 // ToByte converts this key to its byte representation,
@@ -24,6 +28,12 @@ func (k *h11ECDSAPrivateKey) GetSKI() (ski []byte) {
 	// TODO: Error should not be thrown. Anyway, move the marshalling at initialization.
 
 	return primitives.Hash(raw)
+	// return k.tokenLabel
+}
+
+// <VP> GetSKI returns the subject key identifier of this key.
+func (k *h11ECDSAPrivateKey) GetSKI2() (ski []byte) {
+	return k.tokenLabel.Bytes()
 }
 
 // Symmetric returns true if this key is a symmetric key,
@@ -42,11 +52,12 @@ func (k *h11ECDSAPrivateKey) Private() bool {
 // is an asymmetric private key. If this key is already public,
 // PublicKey returns this key itself.
 func (k *h11ECDSAPrivateKey) PublicKey() (Key, error) {
-	return &h11ECDSAPublicKey{&k.k.PublicKey}, nil
+	return &h11ECDSAPublicKey{&k.k.PublicKey, k.pubicP11Key}, nil
 }
 
 type h11ECDSAPublicKey struct {
 	k *ecdsa.PublicKey
+	pubicP11Key pkcs11.ObjectHandle
 }
 
 // ToByte converts this key to its byte representation,
