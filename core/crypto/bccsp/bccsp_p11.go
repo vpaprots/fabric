@@ -24,7 +24,7 @@ package bccsp
 
 import (
 	"crypto/ecdsa"
-	"crypto/rand"
+//	"crypto/rand"
 	"crypto/sha256"
 	"encoding/asn1"
 	"encoding/hex"
@@ -547,9 +547,13 @@ func (csp *P11BCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 		// generate an ECDSA key through P11
 		// ...which will then be discarded...
 		//
-		generate_pkcs11()
-		_ = Eccycle()
+//		generate_pkcs11()
+//		_ = Eccycle()
+		ski, err := Generate_pkcs11(0)
 
+//		p11ECDSAPrivateKey k
+			// retain keytype
+/*
 		lowLevelKey, err := primitives.NewECDSAKey()
 		if err != nil {
 			return nil, fmt.Errorf("Failed generating ECDSA key [%s]", err)
@@ -565,7 +569,9 @@ func (csp *P11BCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 				return nil, fmt.Errorf("Failed storing ECDSA key [%s]", err)
 			}
 		}
-
+*/
+			// the P11 provider has stored the key after key.gen
+			// no need for explicit save
 		return k, nil
 	case "AES_256":
 		lowLevelKey, err := primitives.GenAESKey()
@@ -820,7 +826,8 @@ func (csp *P11BCCSP) Sign(k Key, digest []byte, opts SignerOpts) (signature []by
 	// Check key type
 	switch k.(type) {
 	case *swECDSAPrivateKey:
-		return k.(*swECDSAPrivateKey).k.Sign(rand.Reader, digest, nil)
+		return Sign_pkcs11(k, 0, digest)
+//		return k.(*swECDSAPrivateKey).k.Sign(rand.Reader, digest, nil)
 	default:
 		return nil, fmt.Errorf("Key type not recognized [%s]", k)
 	}
@@ -848,7 +855,11 @@ func (csp *P11BCCSP) Verify(k Key, signature, digest []byte) (valid bool, err er
 			return false, fmt.Errorf("Failed unmashalling signature [%s]", err)
 		}
 
-		return ecdsa.Verify(&(k.(*swECDSAPrivateKey).k.PublicKey), digest, ecdsaSignature.R, ecdsaSignature.S), nil
+		err = Verify_pkcs11(k, 0, digest, signature)
+		if err == nil {
+		}
+		return true, nil
+//		return ecdsa.Verify(&(k.(*swECDSAPrivateKey).k.PublicKey), digest, ecdsaSignature.R, ecdsaSignature.S), nil
 	default:
 		return false, fmt.Errorf("Key type not recognized [%s]", k)
 	}
