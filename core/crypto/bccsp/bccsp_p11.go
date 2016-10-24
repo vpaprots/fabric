@@ -190,68 +190,6 @@ fmt.Printf(hex.Dump(ski))
 }
 
 
-
-func generate_pkcs11() (pkcs11.ObjectHandle, pkcs11.ObjectHandle, error) {
-	var slot uint = 4 // ocki default
-
-	var p11lib = loadlib()
-
-	p11lib.Initialize()
-	defer p11lib.Destroy()
-	defer p11lib.Finalize()
-
-	session, _ := p11lib.OpenSession(slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
-
-	var id uint64 = next_id_ctr()
-	var ec_param_oid = algconst2oid(256)
-
-	var publabel = fmt.Sprintf("BCPUB%010d", id)
-	var prvlabel = fmt.Sprintf("BCPRV%010d", id)
-
-	var pin = viper.GetString("security.bccsp.pkcs11.pin")
-	if pin == "" {
-		log.Fatal("P11: no PIN set\n")
-	}
-	err := p11lib.Login(session, pkcs11.CKU_USER, pin)
-	if err != nil {
-		log.Fatalf("P11: login failed [%s]\n", err)
-	}
-	defer p11lib.Logout(session)
-
-	pubkey_t := []*pkcs11.Attribute{
-		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
-		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
-		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
-		pkcs11.NewAttribute(pkcs11.CKA_VERIFY, true),
-		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, ec_param_oid),
-
-		pkcs11.NewAttribute(pkcs11.CKA_ID, publabel),
-		pkcs11.NewAttribute(pkcs11.CKA_LABEL, publabel),
-	}
-
-	prvkey_t := []*pkcs11.Attribute{
-		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PRIVATE_KEY),
-		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
-		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
-		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
-		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
-
-		pkcs11.NewAttribute(pkcs11.CKA_ID, prvlabel),
-		pkcs11.NewAttribute(pkcs11.CKA_LABEL, prvlabel),
-	}
-
-	pub, priv, err := p11lib.GenerateKeyPair(session,
-		[]*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_EC_KEY_PAIR_GEN, nil)},
-		pubkey_t, prvkey_t)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return pub, priv, nil
-
-}
-
 //-----  tvi sign/verify additions  ------------------------------------------
 
 // fairly straightforward EC-point query, other than opencryptoki
@@ -363,7 +301,7 @@ func ski2spki(ski []byte) []byte {
 	return ski
 }
 
-func Generate_pkcs11(alg int) (ski []byte, err error) {
+func generate_pkcs11(alg int) (ski []byte, err error) {
 	var slot uint = 4 // ocki default
 
 	_ = alg
@@ -467,7 +405,7 @@ fmt.Printf(hex.Dump(ski))
 }
 
 //--------------------------------------
-func Sign_pkcs11(ski []byte, alg int, msg []byte) ([]byte, error) {
+func sign_pkcs11(ski []byte, alg int, msg []byte) ([]byte, error) {
 	var slot uint = 4
 	var p11lib = loadlib()
 
@@ -512,7 +450,7 @@ fmt.Printf(hex.Dump(ski))
 
 //--------------------------------------
 // error is nil if verified
-func Verify_pkcs11(ski []byte, alg int, msg []byte, sig []byte) error {
+func verify_pkcs11(ski []byte, alg int, msg []byte, sig []byte) error {
 	var slot uint = 4
 	var p11lib = loadlib()
 
@@ -533,13 +471,15 @@ fmt.Printf(hex.Dump(ski))
 
 	var pubh, err = ski2keyhandle(p11lib, session, ski, false /*->public*/)
 	if err != nil {
-		log.Fatalf("P11: public key not found [%s]\n", err)
+		log.Printf("P11: public key not found [%s]\n", err)
+		return err
 	}
 
 	err = p11lib.VerifyInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)},
 		pubh)
 	if err != nil {
-		log.Fatalf("P11: verify-initialize [%s]\n", err)
+		log.Printf("P11: verify-initialize [%s]\n", err)
+		return err
 	}
 	err = p11lib.Verify(session, msg, sig)
 	if err != nil {
@@ -555,19 +495,19 @@ fmt.Printf(hex.Dump(ski))
 var sha256abc = []byte("\xba\x78\x16\xbf\x8f\x01\xcf\xea\x41\x41\x40\xde\x5d\xae\x22\x23\xb0\x03\x61\xa3\x96\x17\x7a\x9c\xb4\x10\xff\x61\xf2\x00\x15\xad")
 
 func Eccycle() error {
-	var ski, err = Generate_pkcs11(0)
+	var ski, err = generate_pkcs11(0)
 	if err != nil {
 		log.Fatalf("P11: generate cycle failed [%s]", err)
 	}
 
-	sig, err := Sign_pkcs11(ski, 0, sha256abc)
+	sig, err := sign_pkcs11(ski, 0, sha256abc)
 	if err != nil {
 		log.Fatalf("P11: sign cycle failed [%s]", err)
 	}
 	fmt.Printf("signature('abc')\n")
 	fmt.Printf(hex.Dump(sig))
 
-	err = Verify_pkcs11(ski, 0, sha256abc, sig)
+	err = verify_pkcs11(ski, 0, sha256abc, sig)
 	if err != nil {
 		log.Fatalf("P11: verify[cycle] failed [%s]", err)
 	}
@@ -581,7 +521,7 @@ func Eccycle() error {
 	//
 	sig = sig[0 : len(sig)-2]
 
-	err = Verify_pkcs11(ski, 0, sha256abc, sig)
+	err = verify_pkcs11(ski, 0, sha256abc, sig)
 	if err == nil {
 		log.Fatalf("P11: invalid verify not rejected [%s]", err)
 	}
@@ -604,7 +544,7 @@ func (csp *P11BCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 		// generate an ECDSA key through P11
 		// ...which will then be discarded...
 		//
-		ski, err := Generate_pkcs11(0)
+		ski, err := generate_pkcs11(0)
 		if err != nil {
 			return nil, fmt.Errorf("Failed ECDSA key.gen [%s]", err)
 		}
@@ -616,7 +556,7 @@ func (csp *P11BCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 
 {
 if (false) {
-	sig, err := Sign_pkcs11(k.GetSKI(), 0, sha256abc)
+	sig, err := sign_pkcs11(k.GetSKI(), 0, sha256abc)
 	if err != nil {
 		log.Fatalf("P11: sign cycle failed [%s]", err)
 	}
@@ -624,9 +564,14 @@ if (false) {
 	fmt.Printf(hex.Dump(sig))
 }
 
-	err = Verify_pkcs11(ski, 0, sha256abc, sha256abc)
+	err = verify_pkcs11(k.GetSKI(), 0, sha256abc, sha256abc)
 	if err != nil {
-		fmt.Printf("P11: verify[cycle] failed [%s]", err)
+		fmt.Printf("P11: verify[1] failed [%s]", err)
+	}
+
+	err = verify_pkcs11(k.GetSKI(), 0, sha256abc, append(sha256abc, sha256abc...))
+	if err != nil {
+		fmt.Printf("P11: verify[2] failed [%s]", err)
 	}
 }
 		return k, nil
@@ -884,7 +829,7 @@ func (csp *P11BCCSP) Sign(k Key, digest []byte, opts SignerOpts) (signature []by
 	// Check key type
 	switch k.(type) {
 	case *p11ECDSAPrivateKey:
-		return Sign_pkcs11(k.GetSKI(), 0, digest)
+		return sign_pkcs11(k.GetSKI(), 0, digest)
 	default:
 		return nil, fmt.Errorf("Key type not recognized [%s]", k)
 	}
@@ -913,7 +858,7 @@ func (csp *P11BCCSP) Verify(k Key, signature, digest []byte) (valid bool, err er
 			return false, fmt.Errorf("Failed unmashalling signature [%s]", err)
 		}
 
-		err = Verify_pkcs11(k.GetSKI(), 0, digest, signature)
+		err = verify_pkcs11(k.GetSKI(), 0, digest, signature)
 		if err != nil {
 		}
 		return true, nil
