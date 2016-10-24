@@ -4,7 +4,6 @@ package bccsp
 //	"crypto/ecdsa"
 //	"crypto/x509"
 //	"fmt"
-
 //	"github.com/hyperledger/fabric/core/crypto/primitives"
 //	"github.com/miekg/pkcs11"
 //)
@@ -13,8 +12,6 @@ package bccsp
 
 type p11ECDSAPrivateKey struct {
 //	k *ecdsa.PrivateKey
-//	privateP11Key pkcs11.ObjectHandle
-//	pubicP11Key pkcs11.ObjectHandle
 	pub *p11ECDSAPublicKey
 	label string
 	ski []byte
@@ -49,7 +46,8 @@ func (k *p11ECDSAPrivateKey) Private() bool {
 // is an asymmetric private key. If this key is already public,
 // PublicKey returns this key itself.
 func (k *p11ECDSAPrivateKey) PublicKey() (Key, error) {
-	return &p11ECDSAPublicKey{k.pub.spki, k.pub.label, k.pub.ski}, nil
+	return k.pub, nil
+//	return &p11ECDSAPublicKey{k.pub.spki, k.pub.label, k.pub.ski}, nil
 }
 
 type p11ECDSAPublicKey struct {
