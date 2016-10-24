@@ -325,12 +325,16 @@ func (ca *CA) createCAKeyPair(name string) bccsp.Key {
 {
 var sha256abc = []byte("\xba\x78\x16\xbf\x8f\x01\xcf\xea\x41\x41\x40\xde\x5d\xae\x22\x23\xb0\x03\x61\xa3\x96\x17\x7a\x9c\xb4\x10\xff\x61\xf2\x00\x15\xad")
 
+fmt.Printf("verify[1]\n")
+ver, ve := csp.Verify(key, sha256abc, sha256abc)
+fmt.Printf("verify[1]: %d,%s\n", ver, ve)
+
 sig, se := csp.Sign(key, sha256abc, nil)
 _ = se
         fmt.Printf("signature('abc')\n");
         fmt.Printf(hex.Dump(sig))
 
-ver, err := csp.Verify(key, sha256abc, nil)
+ver, err := csp.Verify(key, sha256abc, sig)
 fmt.Printf("verify: %d,%s\n", ver, err)
 }
 

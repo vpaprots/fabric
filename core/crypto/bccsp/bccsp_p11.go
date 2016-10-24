@@ -212,7 +212,10 @@ func generate_pkcs11() (pkcs11.ObjectHandle, pkcs11.ObjectHandle, error) {
 	if pin == "" {
 		log.Fatal("P11: no PIN set\n")
 	}
-	p11lib.Login(session, pkcs11.CKU_USER, pin)
+	err := p11lib.Login(session, pkcs11.CKU_USER, pin)
+	if err != nil {
+		log.Fatalf("P11: login failed [%s]\n", err)
+	}
 	defer p11lib.Logout(session)
 
 	pubkey_t := []*pkcs11.Attribute{
@@ -404,7 +407,7 @@ func Generate_pkcs11(alg int) (ski []byte, err error) {
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PRIVATE_KEY),
 		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
-		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, false),   // XXX
+		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, false),
 		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
 
 		pkcs11.NewAttribute(pkcs11.CKA_ID, prvlabel),
@@ -412,6 +415,7 @@ func Generate_pkcs11(alg int) (ski []byte, err error) {
 
 		// WTLS attributes, not defined for other objects
 		// setting these would allow storing the SKI
+		// through sort-of-standard attributes
 		//		pkcs11.NewAttribute(pkcs11.CKA_HASH_OF_SUBJECT_PUBLIC_KEY,
 		//                                    defaultSKI),
 		//		pkcs11.NewAttribute(pkcs11.CKA_NAME_HASH_ALGORITHM,
@@ -435,7 +439,7 @@ func Generate_pkcs11(alg int) (ski []byte, err error) {
 fmt.Printf("SKI(set)\n")
 fmt.Printf(hex.Dump(ski))
 
-		// set CKA_ID of the both keys to SKI(private key)
+		// set CKA_ID of the both keys to SKI(public key)
 		//
 		setski_t := []*pkcs11.Attribute{
 			pkcs11.NewAttribute(pkcs11.CKA_ID, ski[0:SKI_BYTES]),
@@ -450,6 +454,12 @@ fmt.Printf(hex.Dump(ski))
 		if err != nil {
 			log.Fatalf("P11: set-ID-to-SKI[private] failed [%s]\n", err)
 		}
+
+	skh, ske := ski2keyhandle(p11lib, session, ski, false, /*->private*/)
+	if ske != nil {
+		log.Fatalf("P11: prvkey/1 not found [%s]\n", ske)
+	}
+	fmt.Printf("XXX[%d]", skh)
 
 		return ski, nil
 	}
@@ -475,7 +485,6 @@ func Sign_pkcs11(ski []byte, alg int, msg []byte) ([]byte, error) {
 		log.Fatal("P11: login failed\n")
 	}
 	defer p11lib.Logout(session)
-
 fmt.Printf("SKI(sign)\n")
 fmt.Printf(hex.Dump(ski))
 
@@ -891,7 +900,8 @@ func (csp *P11BCCSP) Verify(k Key, signature, digest []byte) (valid bool, err er
 
 	// Check key type
 	switch k.(type) {
-	case *swECDSAPrivateKey:
+	case *p11ECDSAPrivateKey:
+	case *p11ECDSAPublicKey:
 		ecdsaSignature := new(primitives.ECDSASignature)
 		_, err := asn1.Unmarshal(signature, ecdsaSignature)
 		if err != nil {
@@ -902,10 +912,10 @@ func (csp *P11BCCSP) Verify(k Key, signature, digest []byte) (valid bool, err er
 		if err == nil {
 		}
 		return true, nil
-//		return ecdsa.Verify(&(k.(*swECDSAPrivateKey).k.PublicKey), digest, ecdsaSignature.R, ecdsaSignature.S), nil
 	default:
 		return false, fmt.Errorf("Key type not recognized [%s]", k)
 	}
+	return false, nil
 }
 
 // Encrypt encrypts plaintext using key k.
