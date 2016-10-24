@@ -32,8 +32,8 @@ security:
     bccsp:
       keyStorePath: "/tmp/membersrvc"
       #default: SW
-      #default: "P11"
-      default: "H11"
+      default: "P11"
+      #default: "H11"
 
       pkcs11:
         library: "/usr/lib/libacsp-pkcs11.so"
