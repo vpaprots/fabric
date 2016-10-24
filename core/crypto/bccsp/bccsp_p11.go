@@ -159,11 +159,11 @@ func ski2keyhandle(mod *pkcs11.Ctx, session pkcs11.SessionHandle, ski []byte, is
 	var ktype = pkcs11.CKO_PUBLIC_KEY
 
 	if (is_private) {
+fmt.Printf("searching for private key")
 		ktype = pkcs11.CKO_PRIVATE_KEY
-	}
-fmt.Printf("SKI(find)\n")
-fmt.Printf(hex.Dump(ski))
-_ = ktype
+	} else {
+fmt.Printf("searching for public key")
+}
 
 	template := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, ktype),
@@ -186,6 +186,22 @@ _ = ktype
 	if len(objs) == 0 {
 		return noHandle, fmt.Errorf("P11: key not found")
 	}
+
+{
+	template := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, nil),
+	}
+
+	attr, err := mod.GetAttributeValue(session, objs[0], template)
+	if err != nil {
+		log.Fatalf("P11: GAV [%s]\n", err)
+	}
+
+	// leave 'iterator' even if currently using only one entry
+	for _, a := range attr {
+		fmt.Printf("attr type %d/x%x, length %d b, %d\n", a.Type, a.Type, len(a.Value), a.Value)
+}
+}
 
 	return objs[0], nil
 }
@@ -310,7 +326,7 @@ func generate_pkcs11(alg int) (ski []byte, err error) {
 	var p11lib = loadlib()
 
 	p11lib.Initialize()
-	defer p11lib.Destroy()
+//	defer p11lib.Destroy()
 	defer p11lib.Finalize()
 
 	session, _ := p11lib.OpenSession(slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
@@ -367,7 +383,34 @@ func generate_pkcs11(alg int) (ski []byte, err error) {
 	if err != nil {
 		log.Fatalf("P11: keypair generate failed [%s]\n", err)
 	}
-
+{
+{
+	template := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, nil),
+	}
+	attr, err := p11lib.GetAttributeValue(session, prv, template)
+	if err != nil {
+		log.Fatalf("P11: GAV [%s]\n", err)
+	}
+	// leave 'iterator' even if currently using only one entry
+	for _, a := range attr {
+		fmt.Printf("prv: attr type %d/x%x, length %d b, %d\n", a.Type, a.Type, len(a.Value), a.Value)
+}
+}
+{
+	template := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, nil),
+	}
+	attr, err := p11lib.GetAttributeValue(session, pub, template)
+	if err != nil {
+		log.Fatalf("P11: GAV [%s]\n", err)
+	}
+	// leave 'iterator' even if currently using only one entry
+	for _, a := range attr {
+		fmt.Printf("pub: attr type %d/x%x, length %d b, %d\n", a.Type, a.Type, len(a.Value), a.Value)
+}
+}
+}
 	{
 		ecpt := ecpoint(p11lib, session, pub)
 		ski := eckey2ski(p11lib, session, pub, ecpt)
@@ -375,8 +418,6 @@ func generate_pkcs11(alg int) (ski []byte, err error) {
 		// save public-point <-> SKI mappings
 		ski2pubkey(ski, ecpt)
 		pubkey2ski(ecpt, ski)
-fmt.Printf("SKI(set)\n")
-fmt.Printf(hex.Dump(ski))
 
 		// set CKA_ID of the both keys to SKI(public key)
 		//
@@ -393,13 +434,34 @@ fmt.Printf(hex.Dump(ski))
 		if err != nil {
 			log.Fatalf("P11: set-ID-to-SKI[private] failed [%s]\n", err)
 		}
-
-/* XXX VT
-	skh, ske := ski2keyhandle(p11lib, session, ski, false,)
-	if ske != nil {
-		log.Fatalf("P11: prvkey/1 not found [%s]\n", ske)
+{
+{
+	template := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, nil),
 	}
-*/
+	attr, err := p11lib.GetAttributeValue(session, prv, template)
+	if err != nil {
+		log.Fatalf("P11: GAV [%s]\n", err)
+	}
+	// leave 'iterator' even if currently using only one entry
+	for _, a := range attr {
+		fmt.Printf("prv: attr type %d/x%x, length %d b, %d\n", a.Type, a.Type, len(a.Value), a.Value)
+}
+}
+{
+	template := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, nil),
+	}
+	attr, err := p11lib.GetAttributeValue(session, pub, template)
+	if err != nil {
+		log.Fatalf("P11: GAV [%s]\n", err)
+	}
+	// leave 'iterator' even if currently using only one entry
+	for _, a := range attr {
+		fmt.Printf("pub: attr type %d/x%x, length %d b, %d\n", a.Type, a.Type, len(a.Value), a.Value)
+}
+}
+}
 
 		return ski, nil
 	}
@@ -457,7 +519,7 @@ func verify_pkcs11(ski []byte, alg int, msg []byte, sig []byte) error {
 	var p11lib = loadlib()
 
 	p11lib.Initialize()
-	defer p11lib.Destroy()
+//	defer p11lib.Destroy()
 	defer p11lib.Finalize()
 fmt.Printf("SKI(verify)\n")
 fmt.Printf(hex.Dump(ski))
