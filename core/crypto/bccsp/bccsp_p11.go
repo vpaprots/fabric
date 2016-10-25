@@ -154,11 +154,9 @@ func loadlib() *pkcs11.Ctx {
 //--------------------------------------
 // does not manage sort-of-expected errors [not available etc.]
 //
-// defaults are 'large enough' for values we expect to find
-//
 func list_attrs(p11lib *pkcs11.Ctx, session pkcs11.SessionHandle, obj pkcs11.ObjectHandle) error {
 	var cktype, ckclass uint
-//	var cktoken, cksign, ckpriv, ckverify bool
+//	var cktoken, cksign, ckverify, ckpriv bool
 //	var ckecparam, ckecpoint, ckaid, cklabel []byte
 	var ckecparam, ckaid, cklabel []byte
 
@@ -175,21 +173,19 @@ func list_attrs(p11lib *pkcs11.Ctx, session pkcs11.SessionHandle, obj pkcs11.Obj
 		pkcs11.NewAttribute(pkcs11.CKA_ID, ckaid),
 		pkcs11.NewAttribute(pkcs11.CKA_LABEL, cklabel),
 
-/*
-		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, ckpriv),
-		pkcs11.NewAttribute(pkcs11.CKA_SIGN, cksign),
-		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, cktoken),
-		pkcs11.NewAttribute(pkcs11.CKA_VERIFY, ckverify),
-*/
+//		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, ckpriv),
+//		pkcs11.NewAttribute(pkcs11.CKA_SIGN, cksign),
+//		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, cktoken),
+//		pkcs11.NewAttribute(pkcs11.CKA_VERIFY, ckverify),
 	}
 
+		// certain errors are tolerated, if value is missing
 	attr, err := p11lib.GetAttributeValue(session, obj, template)
 	if err != nil {
-		log.Fatalf("P11: get(attrlist) [%s]\n", err)
+		fmt.Printf("P11: get(attrlist) [%s]\n", err)
 	}
 	_ = attr
 
-	// leave 'iterator' even if currently using only one entry
 	for _, a := range attr {
 		fmt.Printf("P11: attr type %d/x%x, length %d b\n", a.Type, a.Type, len(a.Value))
 		fmt.Printf(hex.Dump(a.Value))
@@ -205,11 +201,8 @@ func ski2keyhandle(mod *pkcs11.Ctx, session pkcs11.SessionHandle, ski []byte, is
 	var ktype = pkcs11.CKO_PUBLIC_KEY
 
 	if (is_private) {
-fmt.Printf("searching for private key\n")
 		ktype = pkcs11.CKO_PRIVATE_KEY
-	} else {
-fmt.Printf("searching for public key\n")
-}
+	}
 
 	template := []*pkcs11.Attribute{
 		pkcs11.NewAttribute(pkcs11.CKA_CLASS, ktype),
@@ -394,8 +387,8 @@ func generate_pkcs11(alg int) (ski []byte, err error) {
 	defer p11lib.Logout(session)
 
 	pubkey_t := []*pkcs11.Attribute{
-		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
 		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PUBLIC_KEY),
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
 		pkcs11.NewAttribute(pkcs11.CKA_VERIFY, true),
 		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, ec_param_oid),
@@ -405,8 +398,8 @@ func generate_pkcs11(alg int) (ski []byte, err error) {
 	}
 
 	prvkey_t := []*pkcs11.Attribute{
-		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PRIVATE_KEY),
 		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, pkcs11.CKK_EC),
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, pkcs11.CKO_PRIVATE_KEY),
 		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, true),
 		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, true),
 		pkcs11.NewAttribute(pkcs11.CKA_SIGN, true),
