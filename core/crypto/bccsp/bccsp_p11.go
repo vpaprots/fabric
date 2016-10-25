@@ -151,6 +151,52 @@ func loadlib() *pkcs11.Ctx {
 	return ps
 }
 
+//--------------------------------------
+// does not manage sort-of-expected errors [not available etc.]
+//
+// defaults are 'large enough' for values we expect to find
+//
+func list_attrs(p11lib *pkcs11.Ctx, session pkcs11.SessionHandle, obj pkcs11.ObjectHandle) error {
+	var cktype, ckclass uint
+//	var cktoken, cksign, ckpriv, ckverify bool
+//	var ckecparam, ckecpoint, ckaid, cklabel []byte
+	var ckecparam, ckaid, cklabel []byte
+
+	if (p11lib == nil) {
+		return nil
+	}
+
+	template := []*pkcs11.Attribute{
+		pkcs11.NewAttribute(pkcs11.CKA_CLASS, ckclass),
+		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, cktype),
+
+		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, ckecparam),
+//		pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, ckecpoint),
+		pkcs11.NewAttribute(pkcs11.CKA_ID, ckaid),
+		pkcs11.NewAttribute(pkcs11.CKA_LABEL, cklabel),
+
+/*
+		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, ckpriv),
+		pkcs11.NewAttribute(pkcs11.CKA_SIGN, cksign),
+		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, cktoken),
+		pkcs11.NewAttribute(pkcs11.CKA_VERIFY, ckverify),
+*/
+	}
+
+	attr, err := p11lib.GetAttributeValue(session, obj, template)
+	if err != nil {
+		log.Fatalf("P11: get(attrlist) [%s]\n", err)
+	}
+	_ = attr
+
+	// leave 'iterator' even if currently using only one entry
+	for _, a := range attr {
+		fmt.Printf("P11: attr type %d/x%x, length %d b\n", a.Type, a.Type, len(a.Value))
+		fmt.Printf(hex.Dump(a.Value))
+	}
+
+	return nil
+}
 
 //--------------------------------------
 func ski2keyhandle(mod *pkcs11.Ctx, session pkcs11.SessionHandle, ski []byte, is_private bool) (pkcs11.ObjectHandle, error) {
@@ -406,6 +452,9 @@ func generate_pkcs11(alg int) (ski []byte, err error) {
 		if err != nil {
 			log.Fatalf("P11: set-ID-to-SKI[private] failed [%s]\n", err)
 		}
+
+		list_attrs(p11lib, session, prv)
+		list_attrs(p11lib, session, pub)
 
 		return ski, nil
 	}
