@@ -187,13 +187,13 @@ func list_attrs(p11lib *pkcs11.Ctx, session pkcs11.SessionHandle, obj pkcs11.Obj
 		// certain errors are tolerated, if value is missing
 	attr, err := p11lib.GetAttributeValue(session, obj, template)
 	if err != nil {
-		fmt.Printf("P11: get(attrlist) [%s]\n", err)
+		h11BCCSPLog.Warningf("P11: get(attrlist) [%s]\n", err)
 	}
 	_ = attr
 
 	for _, a := range attr {
-		fmt.Printf("P11: attr type %d/x%x, length %d b\n", a.Type, a.Type, len(a.Value))
-		fmt.Printf(hex.Dump(a.Value))
+		h11BCCSPLog.Debugf("P11: attr type %d/x%x, length %d b\n", a.Type, a.Type, len(a.Value))
+		h11BCCSPLog.Debugf(hex.Dump(a.Value))
 	}
 
 	return nil
@@ -218,7 +218,7 @@ func ski2keyhandle(mod *pkcs11.Ctx, session pkcs11.SessionHandle, ski []byte, is
 		return noHandle, err
 	}
 
-		// single session instance, assume one hit only
+	// single session instance, assume one hit only
 	objs, _, err := mod.FindObjects(session, 1)
 	if err != nil {
 		return noHandle, err
@@ -238,12 +238,12 @@ func ski2keyhandle(mod *pkcs11.Ctx, session pkcs11.SessionHandle, ski []byte, is
 
 	attr, err := mod.GetAttributeValue(session, objs[0], template)
 	if err != nil {
-		log.Fatalf("P11: GAV [%s]\n", err)
+		h11BCCSPLog.Fatalf("P11: GAV [%s]\n", err)
 	}
 
 	// leave 'iterator' even if currently using only one entry
 	for _, a := range attr {
-		fmt.Printf("attr type %d/x%x, length %d b, %d\n", a.Type, a.Type, len(a.Value), a.Value)
+		h11BCCSPLog.Debugf("attr type %d/x%x, length %d b, %d\n", a.Type, a.Type, len(a.Value), a.Value)
 }
 }
 
@@ -293,7 +293,7 @@ func ecpoint(p11lib *pkcs11.Ctx, session pkcs11.SessionHandle, key pkcs11.Object
 
 	attr, err := p11lib.GetAttributeValue(session, key, template)
 	if err != nil {
-		log.Fatalf("P11: get(EC point) [%s]\n", err)
+		h11BCCSPLog.Fatalf("P11: get(EC point) [%s]\n", err)
 	}
 	_ = attr
 
@@ -302,9 +302,9 @@ func ecpoint(p11lib *pkcs11.Ctx, session pkcs11.SessionHandle, key pkcs11.Object
 		if a.Type != pkcs11.CKA_EC_POINT {
 			continue
 		}
-		fmt.Printf("attr type %d/x%x, length %d b\n", a.Type, a.Type, len(a.Value))
-		fmt.Printf("EC point:\n")
-		fmt.Printf(hex.Dump(a.Value))
+		h11BCCSPLog.Debugf("attr type %d/x%x, length %d b\n", a.Type, a.Type, len(a.Value))
+		h11BCCSPLog.Debugf("EC point:\n")
+		h11BCCSPLog.Debugf(hex.Dump(a.Value))
 
 		// workaround, see above
 		if (0 == (len(a.Value) % 2)) && (byte(0x04) == a.Value[0]) && (byte(0x04) == a.Value[len(a.Value)-1]) {
@@ -425,10 +425,10 @@ func generate_pkcs11(alg int) (ski []byte, err error) {
 		[]*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_EC_KEY_PAIR_GEN, nil)},
 		pubkey_t, prvkey_t)
 	if err != nil {
-		log.Fatalf("P11: keypair generate failed [%s]\n", err)
+		h11BCCSPLog.Fatalf("P11: keypair generate failed [%s]\n", err)
 	}
-	{
-fmt.Printf("P11 init/1")
+	{ // << VP: why scoped?
+h11BCCSPLog.Debugf("P11 init/1")
 		list_attrs(p11lib, session, prv)
 		list_attrs(p11lib, session, pub)
 
@@ -447,7 +447,7 @@ fmt.Printf("P11 init/1")
 		//
 		err = p11lib.SetAttributeValue(session, pub, setski_t)
 		if err != nil {
-			log.Fatalf("P11: set-ID-to-SKI[public] failed [%s]\n", err)
+			h11BCCSPLog.Fatalf("P11: set-ID-to-SKI[public] failed [%s]\n", err)
 		}
 		//
 		err = p11lib.SetAttributeValue(session, prv, setski_t)
@@ -455,7 +455,7 @@ fmt.Printf("P11 init/1")
 			log.Fatalf("P11: set-ID-to-SKI[private] failed [%s]\n", err)
 		}
 
-fmt.Printf("P11 init/2")
+h11BCCSPLog.Debugf("P11 init/2")
 		list_attrs(p11lib, session, prv)
 		list_attrs(p11lib, session, pub)
 
@@ -476,33 +476,33 @@ func sign_pkcs11(ski []byte, alg int, msg []byte) ([]byte, error) {
 
 	var pin = viper.GetString("security.bccsp.pkcs11.pin")
 	if pin == "" {
-		log.Fatal("P11: no PIN set\n")
+		h11BCCSPLog.Fatal("P11: no PIN set\n")
 	}
 	err := p11lib.Login(session, pkcs11.CKU_USER, pin)
 	if err != nil {
-		log.Fatal("P11: login failed\n")
+		h11BCCSPLog.Fatal("P11: login failed\n")
 	}
 	defer p11lib.Logout(session)
-fmt.Printf("SKI(sign)\n")
-fmt.Printf(hex.Dump(ski))
+	h11BCCSPLog.Info("SKI(sign)\n")
+	h11BCCSPLog.Debugf(hex.Dump(ski))
 
 	prvh, err := ski2keyhandle(p11lib, session, ski, true, /*->private*/)
 	if err != nil {
-		fmt.Printf("P11: private key not found [%s]\n", err)
-return nil, err
+		h11BCCSPLog.Criticalf("P11: private key not found [%s]\n", err)
+		return nil, err
 	}
 
 	err = p11lib.SignInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)},
 		prvh)
 	if err != nil {
-		log.Fatalf("P11: sign-initialize [%s]\n", err)
+		h11BCCSPLog.Fatalf("P11: sign-initialize [%s]\n", err)
 	}
 
 	var sig []byte
 
 	sig, err = p11lib.Sign(session, msg)
 	if err != nil {
-		log.Fatalf("P11: sign failed [%s]\n", err)
+		h11BCCSPLog.Fatalf("P11: sign failed [%s]\n", err)
 	}
 
 	return sig, nil
@@ -517,33 +517,33 @@ func verify_pkcs11(ski []byte, alg int, msg []byte, sig []byte) error {
 	p11lib.Initialize()
 //	defer p11lib.Destroy()
 	defer p11lib.Finalize()
-fmt.Printf("SKI(verify)\n")
-fmt.Printf(hex.Dump(ski))
+	h11BCCSPLog.Debugf("SKI(verify)\n")
+	h11BCCSPLog.Debugf(hex.Dump(ski))
 
 	var session, _ = p11lib.OpenSession(slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
 
 	var pin = viper.GetString("security.bccsp.pkcs11.pin")
 	if pin == "" {
-		log.Fatal("P11: no PIN set\n")
+		h11BCCSPLog.Criticalf("P11: no PIN set\n")
 	}
 	p11lib.Login(session, pkcs11.CKU_USER, pin)
 	defer p11lib.Logout(session)
 
 	var pubh, err = ski2keyhandle(p11lib, session, ski, false /*->public*/)
 	if err != nil {
-		log.Printf("P11: public key not found [%s]\n", err)
+		h11BCCSPLog.Criticalf("P11: public key not found [%s]\n", err)
 		return err
 	}
 
 	err = p11lib.VerifyInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)},
 		pubh)
 	if err != nil {
-		log.Printf("P11: verify-initialize [%s]\n", err)
+		h11BCCSPLog.Criticalf("P11: verify-initialize [%s]\n", err)
 		return err
 	}
 	err = p11lib.Verify(session, msg, sig)
 	if err != nil {
-		log.Printf("P11: verify failed [%s]\n", err)
+		h11BCCSPLog.Warningf("P11: verify failed [%s]\n", err)
 		return err
 	}
 
@@ -557,19 +557,19 @@ var sha256abc = []byte("\xba\x78\x16\xbf\x8f\x01\xcf\xea\x41\x41\x40\xde\x5d\xae
 func Eccycle() error {
 	var ski, err = generate_pkcs11(0)
 	if err != nil {
-		log.Fatalf("P11: generate cycle failed [%s]", err)
+		h11BCCSPLog.Fatalf("P11: generate cycle failed [%s]", err)
 	}
 
 	sig, err := sign_pkcs11(ski, 0, sha256abc)
 	if err != nil {
-		log.Fatalf("P11: sign cycle failed [%s]", err)
+		h11BCCSPLog.Fatalf("P11: sign cycle failed [%s]", err)
 	}
-	fmt.Printf("signature('abc')\n")
-	fmt.Printf(hex.Dump(sig))
+	h11BCCSPLog.Debugf("signature('abc')\n")
+	h11BCCSPLog.Debugf(hex.Dump(sig))
 
 	err = verify_pkcs11(ski, 0, sha256abc, sig)
 	if err != nil {
-		log.Fatalf("P11: verify[cycle] failed [%s]", err)
+		h11BCCSPLog.Fatalf("P11: verify[cycle] failed [%s]", err)
 	}
 
 	// cross-check: invalid signature MUST be rejected
@@ -583,7 +583,7 @@ func Eccycle() error {
 
 	err = verify_pkcs11(ski, 0, sha256abc, sig)
 	if err == nil {
-		log.Fatalf("P11: invalid verify not rejected [%s]", err)
+		h11BCCSPLog.Fatalf("P11: invalid verify not rejected [%s]", err)
 	}
 
 	return nil
@@ -608,14 +608,14 @@ func (csp *P11BCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("Failed ECDSA key.gen [%s]", err)
 		}
-		h11BCCSPLog.Debugf("P11: generated SKI:\n")
+		h11BCCSPLog.Infof("P11: generated SKI:\n")
 		h11BCCSPLog.Debugf(hex.Dump(ski))
 
 		kpub := &p11ECDSAPublicKey{ski2spki(ski), "", ski}
 		k = &p11ECDSAPrivateKey{kpub, "", ski}
 
-{
-if (false) {
+{ // DEBUG_CODE
+if (false) { 
 	sig, err := sign_pkcs11(k.GetSKI(), 0, sha256abc)
 	if err != nil {
 		log.Fatalf("P11: sign cycle failed [%s]", err)
@@ -683,6 +683,7 @@ func (csp *P11BCCSP) KeyDeriv(k Key, opts KeyDerivOpts) (dk Key, err error) {
 
 		// Re-randomized an ECDSA private key
 		case *ECDSAReRandKeyOpts:
+			return nil, errors.New("Opts not suppoted")
 //			reRandOpts := opts.(*ECDSAReRandKeyOpts)
 //			tempSK := &ecdsa.PrivateKey{
 //				PublicKey: ecdsa.PublicKey{
@@ -855,6 +856,7 @@ func (csp *P11BCCSP) GetKey(ski []byte) (k Key, err error) {
 		return &swAESPrivateKey{key, false}, nil
 	case "sk":
 		// Load the private key
+		h11BCCSPLog.Infof("Loading key [%x]\n", ski)
 		kpub := &p11ECDSAPublicKey{ski2spki(ski), "", ski}
 		return &p11ECDSAPrivateKey{kpub, "", ski}, nil
 	default:
@@ -880,6 +882,7 @@ func (csp *P11BCCSP) Sign(k Key, digest []byte, opts SignerOpts) (signature []by
 	// Check key type
 	switch k.(type) {
 	case *p11ECDSAPrivateKey:
+		h11BCCSPLog.Info("P11 Sign\n)")
 		return sign_pkcs11(k.GetSKI(), 0, digest)
 	default:
 		return nil, fmt.Errorf("Key type not recognized [%s]", k)
@@ -903,13 +906,20 @@ func (csp *P11BCCSP) Verify(k Key, signature, digest []byte) (valid bool, err er
 	switch k.(type) {
 	case *p11ECDSAPrivateKey:
 	case *p11ECDSAPublicKey:
+		// <VP> Viper config for software signatures
 		ecdsaSignature := new(primitives.ECDSASignature)
 		_, err := asn1.Unmarshal(signature, ecdsaSignature)
 		if err != nil {
 			return false, fmt.Errorf("Failed unmashalling signature [%s]", err)
 		}
-
-		err = verify_pkcs11(k.GetSKI(), 0, digest, signature)
+		
+		var signature2 []byte
+		err = verify_pkcs11(k.GetSKI(), 0, digest, signature2)
+		
+		if (!bytes.equal(signature, signature2) {
+			return false, fmt.Errorf("Software and HSM signatures do not match!\n%x \n%x", 
+				signature, signature2)
+		}
 		if err != nil {
 		}
 		return true, nil
