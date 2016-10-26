@@ -52,6 +52,7 @@ var (
 // It is based on code used in the primitives package.
 // It can be configured via vipe.
 type P11BCCSP struct {
+	// Still used to store Symmetric keys
 	ks *swBCCSPKeyStore
 }
 
@@ -85,6 +86,7 @@ func ski2pubkey (ski []byte, pubkey []byte) []byte {
 		if (nil != pubkey) {
 			ski2pubkey_h[ skey ] = pubkey
 		}
+		h11BCCSPLog.Debugf("ski2pubkey could not find %s\n", hex.Dump(ski))
 		pk = nil
 	} 
 
@@ -102,6 +104,7 @@ func pubkey2ski (pubkey []byte, ski []byte) []byte {
 		if (nil != ski) {
 			pubkey2ski_h[ pkey ] = ski
 		}
+		h11BCCSPLog.Debugf("pubkey2ski could not find %s\n", hex.Dump(pubkey))
 		sk = nil
 	} 
 
@@ -138,15 +141,17 @@ func algconst2oid(alg int) (oid []byte) {
 }
 
 //--------------------------------------
-func loadlib() *pkcs11.Ctx {
+func loadlib() (*pkcs11.Ctx, err) {
 	var lib = viper.GetString("security.bccsp.pkcs11.library")
 	if lib == "" {
-		log.Fatal("P11: no library default\n")
+		h11BCCSPLog.Criticalf("P11: no library default\n")
+		return nil, nil
 	}
 
 	ps := pkcs11.New(lib)
 	if ps == nil {
-		fmt.Printf("P11: instantiate failed [%s]\n", lib)
+		h11BCCSPLog.Criticalf("P11: instantiate failed [%s]\n", lib)
+		return nil, nil
 	}
 	return ps
 }
@@ -603,8 +608,8 @@ func (csp *P11BCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("Failed ECDSA key.gen [%s]", err)
 		}
-		fmt.Printf("P11: generated SKI:\n")
-		fmt.Printf(hex.Dump(ski))
+		h11BCCSPLog.Debugf("P11: generated SKI:\n")
+		h11BCCSPLog.Debugf(hex.Dump(ski))
 
 		kpub := &p11ECDSAPublicKey{ski2spki(ski), "", ski}
 		k = &p11ECDSAPrivateKey{kpub, "", ski}
@@ -672,57 +677,57 @@ func (csp *P11BCCSP) KeyDeriv(k Key, opts KeyDerivOpts) (dk Key, err error) {
 			return nil, errors.New("Invalid opts. Nil.")
 		}
 
-		ecdsaK := k.(*swECDSAPrivateKey)
+		//ecdsaK := k.(*swECDSAPrivateKey)
 
 		switch opts.(type) {
 
 		// Re-randomized an ECDSA private key
 		case *ECDSAReRandKeyOpts:
-			reRandOpts := opts.(*ECDSAReRandKeyOpts)
-			tempSK := &ecdsa.PrivateKey{
-				PublicKey: ecdsa.PublicKey{
-					Curve: ecdsaK.k.Curve,
-					X:     new(big.Int),
-					Y:     new(big.Int),
-				},
-				D: new(big.Int),
-			}
-
-			var k = new(big.Int).SetBytes(reRandOpts.ExpansionValue())
-			var one = new(big.Int).SetInt64(1)
-			n := new(big.Int).Sub(ecdsaK.k.Params().N, one)
-			k.Mod(k, n)
-			k.Add(k, one)
-
-			tempSK.D.Add(ecdsaK.k.D, k)
-			tempSK.D.Mod(tempSK.D, ecdsaK.k.PublicKey.Params().N)
-
-			// Compute temporary public key
-			tempX, tempY := ecdsaK.k.PublicKey.ScalarBaseMult(k.Bytes())
-			tempSK.PublicKey.X, tempSK.PublicKey.Y =
-				tempSK.PublicKey.Add(
-					ecdsaK.k.PublicKey.X, ecdsaK.k.PublicKey.Y,
-					tempX, tempY,
-				)
-
-			// Verify temporary public key is a valid point on the reference curve
-			isOn := tempSK.Curve.IsOnCurve(tempSK.PublicKey.X, tempSK.PublicKey.Y)
-			if !isOn {
-				return nil, errors.New("Failed temporary public key IsOnCurve check. This is an foreign key.")
-			}
-
-			reRandomizedKey := &swECDSAPrivateKey{tempSK}
-
-			// If the key is not Ephemeral, store it.
-			if !opts.Ephemeral() {
-				// Store the key
-				err = csp.ks.storePrivateKey(hex.EncodeToString(reRandomizedKey.GetSKI()), tempSK)
-				if err != nil {
-					return nil, fmt.Errorf("Failed storing ECDSA key [%s]", err)
-				}
-			}
-
-			return reRandomizedKey, nil
+//			reRandOpts := opts.(*ECDSAReRandKeyOpts)
+//			tempSK := &ecdsa.PrivateKey{
+//				PublicKey: ecdsa.PublicKey{
+//					Curve: ecdsaK.k.Curve,
+//					X:     new(big.Int),
+//					Y:     new(big.Int),
+//				},
+//				D: new(big.Int),
+//			}
+//
+//			var k = new(big.Int).SetBytes(reRandOpts.ExpansionValue())
+//			var one = new(big.Int).SetInt64(1)
+//			n := new(big.Int).Sub(ecdsaK.k.Params().N, one)
+//			k.Mod(k, n)
+//			k.Add(k, one)
+//
+//			tempSK.D.Add(ecdsaK.k.D, k)
+//			tempSK.D.Mod(tempSK.D, ecdsaK.k.PublicKey.Params().N)
+//
+//			// Compute temporary public key
+//			tempX, tempY := ecdsaK.k.PublicKey.ScalarBaseMult(k.Bytes())
+//			tempSK.PublicKey.X, tempSK.PublicKey.Y =
+//				tempSK.PublicKey.Add(
+//					ecdsaK.k.PublicKey.X, ecdsaK.k.PublicKey.Y,
+//					tempX, tempY,
+//				)
+//
+//			// Verify temporary public key is a valid point on the reference curve
+//			isOn := tempSK.Curve.IsOnCurve(tempSK.PublicKey.X, tempSK.PublicKey.Y)
+//			if !isOn {
+//				return nil, errors.New("Failed temporary public key IsOnCurve check. This is an foreign key.")
+//			}
+//
+//			reRandomizedKey := &swECDSAPrivateKey{tempSK}
+//
+//			// If the key is not Ephemeral, store it.
+//			if !opts.Ephemeral() {
+//				// Store the key
+//				err = csp.ks.storePrivateKey(hex.EncodeToString(reRandomizedKey.GetSKI()), tempSK)
+//				if err != nil {
+//					return nil, fmt.Errorf("Failed storing ECDSA key [%s]", err)
+//				}
+//			}
+//
+//			return reRandomizedKey, nil
 
 		default:
 			return nil, errors.New("Opts not suppoted")
@@ -850,17 +855,8 @@ func (csp *P11BCCSP) GetKey(ski []byte) (k Key, err error) {
 		return &swAESPrivateKey{key, false}, nil
 	case "sk":
 		// Load the private key
-		key, err := csp.ks.loadPrivateKey(hex.EncodeToString(ski))
-		if err != nil {
-			return nil, fmt.Errorf("Failed loading key [%x] [%s]", ski, err)
-		}
-
-		switch key.(type) {
-		case *ecdsa.PrivateKey:
-			return &swECDSAPrivateKey{key.(*ecdsa.PrivateKey)}, nil
-		default:
-			return nil, errors.New("Key type not recognized")
-		}
+		kpub := &p11ECDSAPublicKey{ski2spki(ski), "", ski}
+		return &p11ECDSAPrivateKey{kpub, "", ski}, nil
 	default:
 		return nil, errors.New("Key not recognized")
 	}
