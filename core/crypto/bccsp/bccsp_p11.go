@@ -23,14 +23,15 @@ package bccsp
 
 
 import (
-	"crypto/ecdsa"
+//	"crypto/ecdsa"
 //	"crypto/rand"
+        "bytes"
 	"crypto/sha256"
 	"encoding/asn1"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/big"
+//	"math/big"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/op/go-logging"
@@ -141,17 +142,17 @@ func algconst2oid(alg int) (oid []byte) {
 }
 
 //--------------------------------------
-func loadlib() (*pkcs11.Ctx, err) {
+func loadlib() (*pkcs11.Ctx) {
 	var lib = viper.GetString("security.bccsp.pkcs11.library")
 	if lib == "" {
-		h11BCCSPLog.Criticalf("P11: no library default\n")
-		return nil, nil
+		h11BCCSPLog.Fatalf("P11: no library default\n")
+		return nil
 	}
 
 	ps := pkcs11.New(lib)
 	if ps == nil {
-		h11BCCSPLog.Criticalf("P11: instantiate failed [%s]\n", lib)
-		return nil, nil
+		h11BCCSPLog.Fatalf("P11: instantiate failed [%s]\n", lib)
+		return nil
 	}
 	return ps
 }
@@ -356,8 +357,8 @@ func ski2spki(ski []byte) []byte {
 	if nil != ski {
 			// SPKI base for EC-P256
 		ski = append(ec_p256_spkibase, ski...)
-		fmt.Printf("EC-SPKI\n")
-		fmt.Printf(hex.Dump(ski))
+		h11BCCSPLog.Debugf("EC-SPKI\n")
+		h11BCCSPLog.Debugf(hex.Dump(ski))
 	}
 	return ski
 }
@@ -367,7 +368,7 @@ func generate_pkcs11(alg int) (ski []byte, err error) {
 
 	_ = alg
 
-	var p11lib = loadlib()
+	p11lib := loadlib()
 
 	p11lib.Initialize()
 //	defer p11lib.Destroy()
@@ -383,11 +384,11 @@ func generate_pkcs11(alg int) (ski []byte, err error) {
 
 	var pin = viper.GetString("security.bccsp.pkcs11.pin")
 	if pin == "" {
-		log.Fatal("P11: no PIN set\n")
+		h11BCCSPLog.Fatal("P11: no PIN set\n")
 	}
 	err = p11lib.Login(session, pkcs11.CKU_USER, pin)
 	if err != nil {
-		log.Printf("P11: login failed [%s]\n", err)
+		h11BCCSPLog.Fatalf("P11: login failed [%s]\n", err)
 	}
 	defer p11lib.Logout(session)
 
@@ -452,7 +453,7 @@ h11BCCSPLog.Debugf("P11 init/1")
 		//
 		err = p11lib.SetAttributeValue(session, prv, setski_t)
 		if err != nil {
-			log.Fatalf("P11: set-ID-to-SKI[private] failed [%s]\n", err)
+			h11BCCSPLog.Fatalf("P11: set-ID-to-SKI[private] failed [%s]\n", err)
 		}
 
 h11BCCSPLog.Debugf("P11 init/2")
@@ -912,13 +913,12 @@ func (csp *P11BCCSP) Verify(k Key, signature, digest []byte) (valid bool, err er
 		if err != nil {
 			return false, fmt.Errorf("Failed unmashalling signature [%s]", err)
 		}
-		
+
 		var signature2 []byte
 		err = verify_pkcs11(k.GetSKI(), 0, digest, signature2)
-		
-		if (!bytes.equal(signature, signature2) {
-			return false, fmt.Errorf("Software and HSM signatures do not match!\n%x \n%x", 
-				signature, signature2)
+
+		if !bytes.Equal(signature, signature2) {
+			return false, fmt.Errorf("Software and HSM signatures do not match!\n%x \n%x", signature, signature2)
 		}
 		if err != nil {
 		}
