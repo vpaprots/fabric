@@ -917,6 +917,7 @@ func (csp *P11BCCSP) Verify(k Key, signature, digest []byte) (valid bool, err er
 		var signature2 []byte
 		err = verify_pkcs11(k.GetSKI(), 0, digest, signature2)
 
+			// VT: this is a Verify() service [SN verify empty message!]
 		if !bytes.Equal(signature, signature2) {
 			return false, fmt.Errorf("Software and HSM signatures do not match!\n%x \n%x", signature, signature2)
 		}

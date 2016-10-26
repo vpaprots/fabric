@@ -327,14 +327,14 @@ var sha256abc = []byte("\xba\x78\x16\xbf\x8f\x01\xcf\xea\x41\x41\x40\xde\x5d\xae
 
 _, _ = csp.Verify(key, sha256abc, sha256abc)
 
-_, _ = csp.Verify(key, sha256abc, append(sha256abc, sha256abc...))
+_, _ = csp.Verify(key, append(sha256abc, sha256abc...), sha256abc)
 
 sig, se := csp.Sign(key, sha256abc, nil)
 _ = se
         fmt.Printf("signature('abc')\n");
         fmt.Printf(hex.Dump(sig))
 
-_, _ = csp.Verify(key, sha256abc, sha256abc)
+_, _ = csp.Verify(key, sig, sha256abc)
 }
 
 	err = ioutil.WriteFile(ca.path+"/"+name+".ski", key.GetSKI(), 0644)
