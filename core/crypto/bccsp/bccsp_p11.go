@@ -382,7 +382,7 @@ func generate_pkcs11(alg int) (ski []byte, err error) {
 	}
 	err = p11lib.Login(session, pkcs11.CKU_USER, pin)
 	if err != nil {
-		log.Fatalf("P11: login failed [%s]\n", err)
+		log.Printf("P11: login failed [%s]\n", err)
 	}
 	defer p11lib.Logout(session)
 
@@ -423,6 +423,10 @@ func generate_pkcs11(alg int) (ski []byte, err error) {
 		log.Fatalf("P11: keypair generate failed [%s]\n", err)
 	}
 	{
+fmt.Printf("P11 init/1")
+		list_attrs(p11lib, session, prv)
+		list_attrs(p11lib, session, pub)
+
 		ecpt := ecpoint(p11lib, session, pub)
 		ski := eckey2ski(p11lib, session, pub, ecpt)
 
@@ -446,6 +450,7 @@ func generate_pkcs11(alg int) (ski []byte, err error) {
 			log.Fatalf("P11: set-ID-to-SKI[private] failed [%s]\n", err)
 		}
 
+fmt.Printf("P11 init/2")
 		list_attrs(p11lib, session, prv)
 		list_attrs(p11lib, session, pub)
 
