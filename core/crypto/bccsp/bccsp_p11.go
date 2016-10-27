@@ -6,7 +6,7 @@ package bccsp
 //   - sign/verify is indexed through SKI -> CKA_ID, see ski2keyhandle()
 //   - we do not validate or re-calculate CKA_IDs we find
 //   - a corresponding counter is inserted as CKA_LABEL
-// - key generate and sign/verify MAY be separated 
+// - key generate and sign/verify MAY be separated
 //   - this precludes use of session objects, if the session may be terminated
 //     - token objects may proliferate, need garbage collection [as with ICSF]
 //   - may be able to preempt [maintain persistent connection to ocki?]
@@ -21,17 +21,16 @@ package bccsp
 // - assume publickey-to-SKI and SKI-to-publickey hashtables may grow
 //   - ...we do not attempt to control their size
 
-
 import (
-//	"crypto/ecdsa"
-//	"crypto/rand"
-        "bytes"
+	//	"crypto/ecdsa"
+	//	"crypto/rand"
+	"bytes"
 	"crypto/sha256"
 	"encoding/asn1"
 	"encoding/hex"
 	"errors"
 	"fmt"
-//	"math/big"
+	//	"math/big"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/op/go-logging"
@@ -41,14 +40,14 @@ import (
 
 	"github.com/miekg/pkcs11"
 
-//	"log"
-    "io/ioutil"
+	//	"log"
+	"io/ioutil"
 	"sync/atomic" // unique-ID assignment
 )
 
 var (
 	p11BCCSPLog = logging.MustGetLogger("bccsp_p11")
-	selfTest = false
+	selfTest    = false
 )
 
 // P11BCCSP is the PKCS11-based implementation of the BCCSP.
@@ -67,13 +66,12 @@ const SKI_BYTES = 32
 // encodings of []byte [which is not allowed as key]
 //
 // hash[ SKI ] -> publickey
-var ski2pubkey_h = make(map[string] []byte)
+var ski2pubkey_h = make(map[string][]byte)
 
 // hash[ publickey ] -> SKI
 // could be computed (hash a portion); stored in CSP-persistent table instead
 //
-var pubkey2ski_h = make(map[string] []byte)
-
+var pubkey2ski_h = make(map[string][]byte)
 
 //--------------------------------------
 // public key corresponding to previously seen SKI ['test and set']
@@ -81,44 +79,41 @@ var pubkey2ski_h = make(map[string] []byte)
 //
 // ...add any SKI-specific lookup, session storage etc. here...
 //
-func ski2pubkey (ski []byte, pubkey []byte) []byte {
+func ski2pubkey(ski []byte, pubkey []byte) []byte {
 	skey := string(ski)
 
-	pk, ok := ski2pubkey_h[ skey ]
-	if (!ok) {
-		if (nil != pubkey) {
-			ski2pubkey_h[ skey ] = pubkey
+	pk, ok := ski2pubkey_h[skey]
+	if !ok {
+		if nil != pubkey {
+			ski2pubkey_h[skey] = pubkey
 			p11BCCSPLog.Debugf("ski2pubkey inserting pubkey\n%s\n", hex.Dump(pubkey))
 		} else {
 			p11BCCSPLog.Debugf("ski2pubkey could not find ski %s\n", hex.Dump(ski))
 		}
 		pk = nil
-	} 
+	}
 
 	return pk
 }
 
-
 //--------------------------------------
 // reverse of ski2pubkey()
-func pubkey2ski (pubkey []byte, ski []byte) []byte {
+func pubkey2ski(pubkey []byte, ski []byte) []byte {
 	pkey := string(pubkey)
 
-	sk, ok := pubkey2ski_h[ pkey ]
-	if (!ok) {
-		if (nil != ski) {
-			pubkey2ski_h[ pkey ] = ski
+	sk, ok := pubkey2ski_h[pkey]
+	if !ok {
+		if nil != ski {
+			pubkey2ski_h[pkey] = ski
 			p11BCCSPLog.Debugf("pubkey2ski inserting ski %s\n", hex.Dump(ski))
 		} else {
 			p11BCCSPLog.Debugf("pubkey2ski could not find pubkey\n%s\n", hex.Dump(pubkey))
 		}
 		sk = nil
-	} 
+	}
 
 	return sk
 }
-
-
 
 // label mgmt
 // do not worry about index wrapping
@@ -136,19 +131,19 @@ func algconst2oid(alg int) (oid []byte) {
 	switch alg {
 	case 384:
 		return []byte("\x06\x05\x2b\x81\x04\x00\x22")
-			// NIST P-384
+		// NIST P-384
 
 	default:
 	case 0:
 	case 256:
 		return []byte("\x06\x08\x2a\x86\x48\xce\x3d\x03\x01\x07")
-			// NIST P-256
+		// NIST P-256
 	}
 	return []byte("never reached")
 }
 
 //--------------------------------------
-func loadlib() (*pkcs11.Ctx) {
+func loadlib() *pkcs11.Ctx {
 	var lib = viper.GetString("security.bccsp.pkcs11.library")
 	if lib == "" {
 		p11BCCSPLog.Fatalf("P11: no library default\n")
@@ -168,11 +163,11 @@ func loadlib() (*pkcs11.Ctx) {
 //
 func list_attrs(p11lib *pkcs11.Ctx, session pkcs11.SessionHandle, obj pkcs11.ObjectHandle) error {
 	var cktype, ckclass uint
-//	var cktoken, cksign, ckverify, ckpriv bool
-//	var ckecparam, ckecpoint, ckaid, cklabel []byte
+	//	var cktoken, cksign, ckverify, ckpriv bool
+	//	var ckecparam, ckecpoint, ckaid, cklabel []byte
 	var ckecparam, ckaid, cklabel []byte
 
-	if (p11lib == nil) {
+	if p11lib == nil {
 		return nil
 	}
 
@@ -181,17 +176,17 @@ func list_attrs(p11lib *pkcs11.Ctx, session pkcs11.SessionHandle, obj pkcs11.Obj
 		pkcs11.NewAttribute(pkcs11.CKA_KEY_TYPE, cktype),
 
 		pkcs11.NewAttribute(pkcs11.CKA_EC_PARAMS, ckecparam),
-//		pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, ckecpoint),
+		//		pkcs11.NewAttribute(pkcs11.CKA_EC_POINT, ckecpoint),
 		pkcs11.NewAttribute(pkcs11.CKA_ID, ckaid),
 		pkcs11.NewAttribute(pkcs11.CKA_LABEL, cklabel),
 
-//		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, ckpriv),
-//		pkcs11.NewAttribute(pkcs11.CKA_SIGN, cksign),
-//		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, cktoken),
-//		pkcs11.NewAttribute(pkcs11.CKA_VERIFY, ckverify),
+		//		pkcs11.NewAttribute(pkcs11.CKA_PRIVATE, ckpriv),
+		//		pkcs11.NewAttribute(pkcs11.CKA_SIGN, cksign),
+		//		pkcs11.NewAttribute(pkcs11.CKA_TOKEN, cktoken),
+		//		pkcs11.NewAttribute(pkcs11.CKA_VERIFY, ckverify),
 	}
 
-		// certain errors are tolerated, if value is missing
+	// certain errors are tolerated, if value is missing
 	attr, err := p11lib.GetAttributeValue(session, obj, template)
 	if err != nil {
 		p11BCCSPLog.Warningf("P11: get(attrlist) [%s]\n", err)
@@ -212,7 +207,7 @@ func ski2keyhandle(mod *pkcs11.Ctx, session pkcs11.SessionHandle, ski []byte, is
 
 	var ktype = pkcs11.CKO_PUBLIC_KEY
 
-	if (is_private) {
+	if is_private {
 		ktype = pkcs11.CKO_PRIVATE_KEY
 	}
 
@@ -238,25 +233,24 @@ func ski2keyhandle(mod *pkcs11.Ctx, session pkcs11.SessionHandle, ski []byte, is
 		return noHandle, fmt.Errorf("P11: key not found")
 	}
 
-{
-	template := []*pkcs11.Attribute{
-		pkcs11.NewAttribute(pkcs11.CKA_CLASS, nil),
-	}
+	{
+		template := []*pkcs11.Attribute{
+			pkcs11.NewAttribute(pkcs11.CKA_CLASS, nil),
+		}
 
-	attr, err := mod.GetAttributeValue(session, objs[0], template)
-	if err != nil {
-		p11BCCSPLog.Fatalf("P11: GAV [%s]\n", err)
-	}
+		attr, err := mod.GetAttributeValue(session, objs[0], template)
+		if err != nil {
+			p11BCCSPLog.Fatalf("P11: GAV [%s]\n", err)
+		}
 
-	// leave 'iterator' even if currently using only one entry
-	for _, a := range attr {
-		p11BCCSPLog.Debugf("attr type %d/x%x, length %d b, %d\n", a.Type, a.Type, len(a.Value), a.Value)
-}
-}
+		// leave 'iterator' even if currently using only one entry
+		for _, a := range attr {
+			p11BCCSPLog.Debugf("attr type %d/x%x, length %d b, %d\n", a.Type, a.Type, len(a.Value), a.Value)
+		}
+	}
 
 	return objs[0], nil
 }
-
 
 //-----  tvi sign/verify additions  ------------------------------------------
 
@@ -361,7 +355,7 @@ var ec_p256_spkibase = []byte("\x30\x59\x30\x13\x06\x07\x2a\x86\x48\xce\x3d\x02\
 func ski2spki(ski []byte) []byte {
 	ski = ski2pubkey(ski, nil)
 	if nil != ski {
-			// SPKI base for EC-P256
+		// SPKI base for EC-P256
 		ski = append(ec_p256_spkibase, ski...)
 		p11BCCSPLog.Debugf("EC-SPKI\n")
 		p11BCCSPLog.Debugf(hex.Dump(ski))
@@ -374,11 +368,11 @@ func generate_pkcs11(alg int, opts KeyGenOpts) (ski, ecpt []byte, err error) {
 
 	_ = alg
 	_ = opts
-	
+
 	p11lib := loadlib()
 
 	p11lib.Initialize()
-//	defer p11lib.Destroy()
+	//	defer p11lib.Destroy()
 	defer p11lib.Finalize()
 
 	session, _ := p11lib.OpenSession(slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
@@ -436,7 +430,7 @@ func generate_pkcs11(alg int, opts KeyGenOpts) (ski, ecpt []byte, err error) {
 		p11BCCSPLog.Fatalf("P11: keypair generate failed [%s]\n", err)
 	}
 	{ // << VP: why scoped?
-p11BCCSPLog.Debugf("P11 init/1")
+		p11BCCSPLog.Debugf("P11 init/1")
 		list_attrs(p11lib, session, prv)
 		list_attrs(p11lib, session, pub)
 
@@ -452,8 +446,8 @@ p11BCCSPLog.Debugf("P11 init/1")
 		setski_t := []*pkcs11.Attribute{
 			pkcs11.NewAttribute(pkcs11.CKA_ID, ski[0:SKI_BYTES]),
 		}
-		
-		p11BCCSPLog.Infof("Generated new P11 key, SKI %x\n") 
+
+		p11BCCSPLog.Infof("Generated new P11 key, SKI %x\n")
 		//
 		err = p11lib.SetAttributeValue(session, pub, setski_t)
 		if err != nil {
@@ -465,7 +459,7 @@ p11BCCSPLog.Debugf("P11 init/1")
 			p11BCCSPLog.Fatalf("P11: set-ID-to-SKI[private] failed [%s]\n", err)
 		}
 
-p11BCCSPLog.Debugf("P11 init/2")
+		p11BCCSPLog.Debugf("P11 init/2")
 		list_attrs(p11lib, session, prv)
 		list_attrs(p11lib, session, pub)
 
@@ -496,7 +490,7 @@ func sign_pkcs11(ski []byte, alg int, msg []byte) ([]byte, error) {
 	p11BCCSPLog.Info("SKI(sign)\n")
 	p11BCCSPLog.Debugf(hex.Dump(ski))
 
-	prvh, err := ski2keyhandle(p11lib, session, ski, true, /*->private*/)
+	prvh, err := ski2keyhandle(p11lib, session, ski, true /*->private*/)
 	if err != nil {
 		p11BCCSPLog.Criticalf("P11: private key not found [%s]\n", err)
 		return nil, err
@@ -525,7 +519,7 @@ func verify_pkcs11(ski []byte, alg int, msg []byte, sig []byte) error {
 	var p11lib = loadlib()
 
 	p11lib.Initialize()
-//	defer p11lib.Destroy()
+	//	defer p11lib.Destroy()
 	defer p11lib.Finalize()
 	p11BCCSPLog.Debugf("SKI(verify)\n")
 	p11BCCSPLog.Debugf(hex.Dump(ski))
@@ -634,26 +628,26 @@ func (csp *P11BCCSP) KeyGen(opts KeyGenOpts) (k Key, err error) {
 			}
 		}
 
-//{ // DEBUG_CODE
-//if (false) { 
-//	sig, err := sign_pkcs11(k.GetSKI(), 0, sha256abc)
-//	if err != nil {
-//		log.Fatalf("P11: sign cycle failed [%s]", err)
-//	}
-//	fmt.Printf("signature('abc')\n")
-//	fmt.Printf(hex.Dump(sig))
-//}
-//
-//	err = verify_pkcs11(k.GetSKI(), 0, sha256abc, sha256abc)
-//	if err != nil {
-//		fmt.Printf("P11: verify[1] failed [%s]", err)
-//	}
-//
-//	err = verify_pkcs11(k.GetSKI(), 0, sha256abc, append(sha256abc, sha256abc...))
-//	if err != nil {
-//		fmt.Printf("P11: verify[2] failed [%s]", err)
-//	}
-//}
+		//{ // DEBUG_CODE
+		//if (false) {
+		//	sig, err := sign_pkcs11(k.GetSKI(), 0, sha256abc)
+		//	if err != nil {
+		//		log.Fatalf("P11: sign cycle failed [%s]", err)
+		//	}
+		//	fmt.Printf("signature('abc')\n")
+		//	fmt.Printf(hex.Dump(sig))
+		//}
+		//
+		//	err = verify_pkcs11(k.GetSKI(), 0, sha256abc, sha256abc)
+		//	if err != nil {
+		//		fmt.Printf("P11: verify[1] failed [%s]", err)
+		//	}
+		//
+		//	err = verify_pkcs11(k.GetSKI(), 0, sha256abc, append(sha256abc, sha256abc...))
+		//	if err != nil {
+		//		fmt.Printf("P11: verify[2] failed [%s]", err)
+		//	}
+		//}
 		return k, nil
 
 	case "AES_256":
@@ -704,51 +698,51 @@ func (csp *P11BCCSP) KeyDeriv(k Key, opts KeyDerivOpts) (dk Key, err error) {
 		// Re-randomized an ECDSA private key
 		case *ECDSAReRandKeyOpts:
 			return nil, errors.New("Opts not suppoted")
-//			reRandOpts := opts.(*ECDSAReRandKeyOpts)
-//			tempSK := &ecdsa.PrivateKey{
-//				PublicKey: ecdsa.PublicKey{
-//					Curve: ecdsaK.k.Curve,
-//					X:     new(big.Int),
-//					Y:     new(big.Int),
-//				},
-//				D: new(big.Int),
-//			}
-//
-//			var k = new(big.Int).SetBytes(reRandOpts.ExpansionValue())
-//			var one = new(big.Int).SetInt64(1)
-//			n := new(big.Int).Sub(ecdsaK.k.Params().N, one)
-//			k.Mod(k, n)
-//			k.Add(k, one)
-//
-//			tempSK.D.Add(ecdsaK.k.D, k)
-//			tempSK.D.Mod(tempSK.D, ecdsaK.k.PublicKey.Params().N)
-//
-//			// Compute temporary public key
-//			tempX, tempY := ecdsaK.k.PublicKey.ScalarBaseMult(k.Bytes())
-//			tempSK.PublicKey.X, tempSK.PublicKey.Y =
-//				tempSK.PublicKey.Add(
-//					ecdsaK.k.PublicKey.X, ecdsaK.k.PublicKey.Y,
-//					tempX, tempY,
-//				)
-//
-//			// Verify temporary public key is a valid point on the reference curve
-//			isOn := tempSK.Curve.IsOnCurve(tempSK.PublicKey.X, tempSK.PublicKey.Y)
-//			if !isOn {
-//				return nil, errors.New("Failed temporary public key IsOnCurve check. This is an foreign key.")
-//			}
-//
-//			reRandomizedKey := &swECDSAPrivateKey{tempSK}
-//
-//			// If the key is not Ephemeral, store it.
-//			if !opts.Ephemeral() {
-//				// Store the key
-//				err = csp.ks.storePrivateKey(hex.EncodeToString(reRandomizedKey.GetSKI()), tempSK)
-//				if err != nil {
-//					return nil, fmt.Errorf("Failed storing ECDSA key [%s]", err)
-//				}
-//			}
-//
-//			return reRandomizedKey, nil
+			//			reRandOpts := opts.(*ECDSAReRandKeyOpts)
+			//			tempSK := &ecdsa.PrivateKey{
+			//				PublicKey: ecdsa.PublicKey{
+			//					Curve: ecdsaK.k.Curve,
+			//					X:     new(big.Int),
+			//					Y:     new(big.Int),
+			//				},
+			//				D: new(big.Int),
+			//			}
+			//
+			//			var k = new(big.Int).SetBytes(reRandOpts.ExpansionValue())
+			//			var one = new(big.Int).SetInt64(1)
+			//			n := new(big.Int).Sub(ecdsaK.k.Params().N, one)
+			//			k.Mod(k, n)
+			//			k.Add(k, one)
+			//
+			//			tempSK.D.Add(ecdsaK.k.D, k)
+			//			tempSK.D.Mod(tempSK.D, ecdsaK.k.PublicKey.Params().N)
+			//
+			//			// Compute temporary public key
+			//			tempX, tempY := ecdsaK.k.PublicKey.ScalarBaseMult(k.Bytes())
+			//			tempSK.PublicKey.X, tempSK.PublicKey.Y =
+			//				tempSK.PublicKey.Add(
+			//					ecdsaK.k.PublicKey.X, ecdsaK.k.PublicKey.Y,
+			//					tempX, tempY,
+			//				)
+			//
+			//			// Verify temporary public key is a valid point on the reference curve
+			//			isOn := tempSK.Curve.IsOnCurve(tempSK.PublicKey.X, tempSK.PublicKey.Y)
+			//			if !isOn {
+			//				return nil, errors.New("Failed temporary public key IsOnCurve check. This is an foreign key.")
+			//			}
+			//
+			//			reRandomizedKey := &swECDSAPrivateKey{tempSK}
+			//
+			//			// If the key is not Ephemeral, store it.
+			//			if !opts.Ephemeral() {
+			//				// Store the key
+			//				err = csp.ks.storePrivateKey(hex.EncodeToString(reRandomizedKey.GetSKI()), tempSK)
+			//				if err != nil {
+			//					return nil, fmt.Errorf("Failed storing ECDSA key [%s]", err)
+			//				}
+			//			}
+			//
+			//			return reRandomizedKey, nil
 
 		default:
 			return nil, errors.New("Opts not suppoted")
@@ -877,16 +871,16 @@ func (csp *P11BCCSP) GetKey(ski []byte) (k Key, err error) {
 	case "sk":
 		// Load the private key
 		p11BCCSPLog.Infof("Loading key [%x]\n", ski)
-		
+
 		path := csp.ks.conf.getPathForAlias(hex.EncodeToString((ski)), "sk")
 		p11BCCSPLog.Debugf("Loading private key [%s] at [%s]...", ski, path)
-	
+
 		ecpt, err := ioutil.ReadFile(path)
 		if err != nil {
 			p11BCCSPLog.Errorf("Failed loading private key [%s]: [%s].", ski, err.Error())
 			return nil, err
 		}
-		
+
 		// save public-point <-> SKI mappings
 		ski2pubkey(ski, ecpt)
 		pubkey2ski(ecpt, ski)
@@ -949,7 +943,7 @@ func (csp *P11BCCSP) Verify(k Key, signature, digest []byte) (valid bool, err er
 		var signature2 []byte
 		err = verify_pkcs11(k.GetSKI(), 0, digest, signature2)
 
-			// VT: this is a Verify() service [SN verify empty message!]
+		// VT: this is a Verify() service [SN verify empty message!]
 		if !bytes.Equal(signature, signature2) {
 			return false, fmt.Errorf("Software and HSM signatures do not match!\n%x \n%x", signature, signature2)
 		}
