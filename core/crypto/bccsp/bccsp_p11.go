@@ -29,6 +29,7 @@ import (
 	"encoding/asn1"
 	"encoding/hex"
 	"errors"
+	"math/big"
 	"fmt"
 	//	"math/big"
 
@@ -56,6 +57,10 @@ var (
 type P11BCCSP struct {
 	// Still used to store Symmetric keys
 	ks *swBCCSPKeyStore
+}
+
+type ecsigRS struct {
+        R, S *big.Int
 }
 
 //-----  tvi's P11 stuff, redacted  ------------------------------------------
@@ -94,6 +99,42 @@ func ski2pubkey(ski []byte, pubkey []byte) []byte {
 	}
 
 	return pk
+}
+
+//--------------------------------------
+// turn raw (R || S) into SEQUENCE { INT r, INT s }
+//
+func ecdsa_rs2asn(rs []byte) []byte {
+	R := new(big.Int)
+	S := new(big.Int)
+	R.SetBytes(rs[ 0:len(rs)/2 ])
+	S.SetBytes(rs[ len(rs)/2: ])
+
+	rs, err := asn1.Marshal(ecsigRS{R, S})
+	if err != nil {
+	        p11BCCSPLog.Debugf("P11: RS -> ASN encoding failed [%s]", err)
+		return nil
+	}
+
+	p11BCCSPLog.Debugf("RS[raw]\n%s\n", hex.Dump(rs))
+	return rs
+}
+
+//--------------------------------------
+// turn SEQUENCE { INT r, INT s } into []byte( R || S )
+// nil if decoding failed
+//
+func ecdsa_sig2rs(sig []byte) []byte {
+	revsig := new(ecsigRS)
+	_, err := asn1.Unmarshal(sig, revsig)
+
+	if err != nil {
+	        p11BCCSPLog.Debugf("P11: R+S ASN encoding invalid [%s]", err)
+		return nil
+	}
+
+		// XXX uniform size
+	return append(revsig.R.Bytes(), revsig.S.Bytes()...)
 }
 
 //--------------------------------------
@@ -509,7 +550,7 @@ func sign_pkcs11(ski []byte, alg int, msg []byte) ([]byte, error) {
 		p11BCCSPLog.Fatalf("P11: sign failed [%s]\n", err)
 	}
 
-	return sig, nil
+	return ecdsa_rs2asn(sig), nil
 }
 
 //--------------------------------------
@@ -517,6 +558,11 @@ func sign_pkcs11(ski []byte, alg int, msg []byte) ([]byte, error) {
 func verify_pkcs11(ski []byte, alg int, msg []byte, sig []byte) (valid bool, err error) {
 	var slot uint = 4
 	var p11lib = loadlib()
+
+	sig := ecdsa_sig2rs(sig)
+	if sig == nil {
+		return false, errors.New("P11: invalid signature encoding")
+	}
 
 	p11lib.Initialize()
 	//	defer p11lib.Destroy()
