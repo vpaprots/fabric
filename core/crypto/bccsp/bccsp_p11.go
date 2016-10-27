@@ -22,9 +22,9 @@ package bccsp
 //   - ...we do not attempt to control their size
 
 import (
-	//	"crypto/ecdsa"
+	//"crypto/ecdsa"
 	//	"crypto/rand"
-	"bytes"
+	//"bytes"
 	"crypto/sha256"
 	"encoding/asn1"
 	"encoding/hex"
@@ -514,7 +514,7 @@ func sign_pkcs11(ski []byte, alg int, msg []byte) ([]byte, error) {
 
 //--------------------------------------
 // error is nil if verified
-func verify_pkcs11(ski []byte, alg int, msg []byte, sig []byte) error {
+func verify_pkcs11(ski []byte, alg int, msg []byte, sig []byte) (valid bool, err error) {
 	var slot uint = 4
 	var p11lib = loadlib()
 
@@ -533,25 +533,25 @@ func verify_pkcs11(ski []byte, alg int, msg []byte, sig []byte) error {
 	p11lib.Login(session, pkcs11.CKU_USER, pin)
 	defer p11lib.Logout(session)
 
-	var pubh, err = ski2keyhandle(p11lib, session, ski, false /*->public*/)
+	pubh, err := ski2keyhandle(p11lib, session, ski, false /*->public*/)
 	if err != nil {
 		p11BCCSPLog.Criticalf("P11: public key not found [%s]\n", err)
-		return err
+		return false, err
 	}
 
 	err = p11lib.VerifyInit(session, []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)},
 		pubh)
 	if err != nil {
 		p11BCCSPLog.Criticalf("P11: verify-initialize [%s]\n", err)
-		return err
+		return false, err
 	}
 	err = p11lib.Verify(session, msg, sig)
 	if err != nil {
 		p11BCCSPLog.Warningf("P11: verify failed [%s]\n", err)
-		return err
+		return false, err
 	}
 
-	return nil
+	return true, nil
 }
 
 //-----  /tvi's P11 stuff  ---------------------------------------------------
@@ -571,7 +571,7 @@ func Eccycle() error {
 	p11BCCSPLog.Debugf("signature('abc')\n")
 	p11BCCSPLog.Debugf(hex.Dump(sig))
 
-	err = verify_pkcs11(ski, 0, sha256abc, sig)
+	_, err = verify_pkcs11(ski, 0, sha256abc, sig)
 	if err != nil {
 		p11BCCSPLog.Fatalf("P11: verify[cycle] failed [%s]", err)
 	}
@@ -585,8 +585,8 @@ func Eccycle() error {
 	//
 	sig = sig[0 : len(sig)-2]
 
-	err = verify_pkcs11(ski, 0, sha256abc, sig)
-	if err == nil {
+	valid, err := verify_pkcs11(ski, 0, sha256abc, sig)
+	if valid == true || err == nil {
 		p11BCCSPLog.Fatalf("P11: invalid verify not rejected [%s]", err)
 	}
 
@@ -940,16 +940,40 @@ func (csp *P11BCCSP) Verify(k Key, signature, digest []byte) (valid bool, err er
 			return false, fmt.Errorf("Failed unmashalling signature [%s]", err)
 		}
 
-		var signature2 []byte
-		err = verify_pkcs11(k.GetSKI(), 0, digest, signature2)
+		//		if viper.GetBool("security.bccsp.pkcs11.swverify") == true {
+		valid, err = verify_pkcs11(k.GetSKI(), 0, digest, signature)
+		//            if err != nil {
+		//				return false, err
+		//			}
+		//            // Delete from here to `return`
+		//            raw, err := k.Bytes()
+		//			if err != nil {
+		//				return false, fmt.Errorf("Failed marshalling public key [%s]", err)
+		//			}
+		//
+		//			pk, err := primitives.DERToPublicKey(raw)
+		//			if err != nil {
+		//				return false,fmt.Errorf("Failed marshalling public key [%s]", err)
+		//			}
+		//            valid2 := ecdsa.Verify(pk, digest, ecdsaSignature.R, ecdsaSignature.S)
+		//
+		//            if valid != valid2 {
+		//            	p11BCCSPLog.Critical("Signature verification failed in HSM\n")
+		//            }
 
-		// VT: this is a Verify() service [SN verify empty message!]
-		if !bytes.Equal(signature, signature2) {
-			return false, fmt.Errorf("Software and HSM signatures do not match!\n%x \n%x", signature, signature2)
-		}
-		if err != nil {
-		}
-		return true, nil
+		return valid, err
+		//        } else {
+		//            raw, err := k.Bytes()
+		//			if err != nil {
+		//				return false, fmt.Errorf("Failed marshalling public key [%s]", err)
+		//			}
+		//
+		//			pk, err := primitives.DERToPublicKey(raw)
+		//			if err != nil {
+		//				return false, fmt.Errorf("Failed marshalling public key [%s]", err)
+		//			}
+		//            return ecdsa.Verify(pk, digest, ecdsaSignature.R, ecdsaSignature.S), nil
+		//        }
 	default:
 		return false, fmt.Errorf("Key type not recognized [%s]", k)
 	}
