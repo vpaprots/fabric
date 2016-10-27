@@ -11,10 +11,10 @@ package bccsp
 // SKIs are filled during object creation etc., outside go
 
 type p11ECDSAPrivateKey struct {
-//	k *ecdsa.PrivateKey
-	pub *p11ECDSAPublicKey
+	//	k *ecdsa.PrivateKey
+	pub   *p11ECDSAPublicKey
 	label string
-	ski []byte
+	ski   []byte
 }
 
 // ToByte converts this key to its byte representation,
@@ -47,13 +47,13 @@ func (k *p11ECDSAPrivateKey) Private() bool {
 // PublicKey returns this key itself.
 func (k *p11ECDSAPrivateKey) PublicKey() (Key, error) {
 	return k.pub, nil
-//	return &p11ECDSAPublicKey{k.pub.spki, k.pub.label, k.pub.ski}, nil
+	//	return &p11ECDSAPublicKey{k.pub.spki, k.pub.label, k.pub.ski}, nil
 }
 
 type p11ECDSAPublicKey struct {
-	spki []byte
+	spki  []byte
 	label string
-	ski []byte
+	ski   []byte
 }
 
 // ToByte converts this key to its byte representation,
