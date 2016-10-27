@@ -29,8 +29,8 @@ import (
 	"encoding/asn1"
 	"encoding/hex"
 	"errors"
-	"math/big"
 	"fmt"
+	"math/big"
 	//	"math/big"
 
 	"github.com/hyperledger/fabric/core/crypto/primitives"
@@ -60,7 +60,7 @@ type P11BCCSP struct {
 }
 
 type ecsigRS struct {
-        R, S *big.Int
+	R, S *big.Int
 }
 
 //-----  tvi's P11 stuff, redacted  ------------------------------------------
@@ -107,12 +107,12 @@ func ski2pubkey(ski []byte, pubkey []byte) []byte {
 func ecdsa_rs2asn(rs []byte) []byte {
 	R := new(big.Int)
 	S := new(big.Int)
-	R.SetBytes(rs[ 0:len(rs)/2 ])
-	S.SetBytes(rs[ len(rs)/2: ])
+	R.SetBytes(rs[0 : len(rs)/2])
+	S.SetBytes(rs[len(rs)/2:])
 
 	rs, err := asn1.Marshal(ecsigRS{R, S})
 	if err != nil {
-	        p11BCCSPLog.Debugf("P11: RS -> ASN encoding failed [%s]", err)
+		p11BCCSPLog.Debugf("P11: RS -> ASN encoding failed [%s]", err)
 		return nil
 	}
 
@@ -124,16 +124,21 @@ func ecdsa_rs2asn(rs []byte) []byte {
 // turn SEQUENCE { INT r, INT s } into []byte( R || S )
 // nil if decoding failed
 //
+// R, S must be 00-padded to full length [that of curve coordinates]
+//
 func ecdsa_sig2rs(sig []byte) []byte {
 	revsig := new(ecsigRS)
 	_, err := asn1.Unmarshal(sig, revsig)
 
 	if err != nil {
-	        p11BCCSPLog.Debugf("P11: R+S ASN encoding invalid [%s]", err)
+		p11BCCSPLog.Debugf("P11: R+S ASN encoding invalid [%s]", err)
 		return nil
 	}
 
-		// XXX uniform size
+	// XXX force to uniform size
+	// rb = R.Bytes()
+	// sb = S.Bytes()
+
 	return append(revsig.R.Bytes(), revsig.S.Bytes()...)
 }
 
@@ -559,7 +564,7 @@ func verify_pkcs11(ski []byte, alg int, msg []byte, sig []byte) (valid bool, err
 	var slot uint = 4
 	var p11lib = loadlib()
 
-	sig := ecdsa_sig2rs(sig)
+	sig = ecdsa_sig2rs(sig)
 	if sig == nil {
 		return false, errors.New("P11: invalid signature encoding")
 	}
