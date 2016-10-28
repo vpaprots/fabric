@@ -50,8 +50,8 @@ security:
 
     bccsp:
       keyStorePath: "/tmp/membersrvc"
-      #default: SW
-      default: "P11"
+      default: SW
+      #default: "P11"
 
       pkcs11:
         library: "/usr/lib/libacsp-pkcs11.so"
@@ -63,19 +63,19 @@ logging:
 
 # Please see fabric/docs/Setup/logging-control.md for more
 # options.
-    server: debug
-    ca: debug
-    eca: debug
-    ecap: debug
-    ecaa: debug
-    aca: debug
-    acap: debug
-    tca: debug
-    tcap: debug
-    tcaa: debug
-    tlsca: debug
-    bccsp_default: debug
-    bccsp_p11: debug
+    server: warning
+    ca: warning
+    eca: warning
+    ecap: warning
+    ecaa: warning
+    aca: warning
+    acap: warning
+    tca: warning
+    tcap: warning
+    tcaa: warning
+    tlsca: warning
+    bccsp_default: warning
+    bccsp_p11: warning
 
 # Default users to be registered with the CA on first launch.  The role is a binary OR
 # of the different roles a user can have:

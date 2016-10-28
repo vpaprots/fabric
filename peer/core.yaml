@@ -68,8 +68,8 @@ logging:
     network:   warning
     chaincode: warning
     version: warning
-    bccsp_default: debug
-    bccsp_p11: debug
+    bccsp_default: warning
+    bccsp_p11: warning
 
 ###############################################################################
 #
@@ -432,8 +432,8 @@ security:
 
     bccsp:
       keyStorePath: "/tmp/peer"
-      #default: SW
-      default: "P11"
+      default: SW
+      #default: "P11"
       
       pkcs11:
         library: "/usr/lib/libacsp-pkcs11.so"
