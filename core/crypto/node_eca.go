@@ -160,7 +160,7 @@ func (node *nodeImpl) loadEnrollmentKey() error {
 		return err
 	}
 
-	csp, err := bccsp.GetDefault()
+	csp, err := bccsp.GetDefault(int(node.GetType()))
 	if err != nil {
 		node.Errorf("Failed loading BCCSP [%s].", err.Error())
 
@@ -340,7 +340,7 @@ func (node *nodeImpl) getEnrollmentCertificateFromECA(id, pw string) (bccsp.Key,
 	defer sock.Close()
 
 	// Run the protocol
-	csp, err := bccsp.GetDefault()
+	csp, err := bccsp.GetDefault(int(node.GetType()))
 	if err != nil {
 		node.Errorf("Failed getting default BCCSP [%s]", err)
 

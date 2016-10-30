@@ -39,6 +39,7 @@ import (
 
 	"crypto"
 
+	node "github.com/hyperledger/fabric/core/crypto"
 	"github.com/hyperledger/fabric/core/crypto/bccsp"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 	"github.com/hyperledger/fabric/flogging"
@@ -265,7 +266,7 @@ func NewCA(name string, initTables TableInitializer) *CA {
 	ca.priv = priv
 
 	// Create the crypto signer
-	csp, err := bccsp.GetDefault()
+	csp, err := bccsp.GetDefault(int(ca.GetType()))
 	if err != nil {
 		caLogger.Panic((err))
 	}
@@ -312,7 +313,7 @@ func (ca *CA) Stop() error {
 func (ca *CA) createCAKeyPair(name string) bccsp.Key {
 	caLogger.Debug("Creating CA key pair.")
 
-	csp, err := bccsp.GetDefault()
+	csp, err := bccsp.GetDefault(int(ca.GetType()))
 	if err != nil {
 		caLogger.Panicf("Failed getting BCCSP [%s]", err)
 	}
@@ -353,7 +354,7 @@ func (ca *CA) readCAPrivateKey(name string) (bccsp.Key, error) {
 		return nil, err
 	}
 
-	csp, err := bccsp.GetDefault()
+	csp, err := bccsp.GetDefault(int(ca.GetType()))
 	if err != nil {
 		return nil, fmt.Errorf("Failed getting BCCSp [%s]", err)
 	}
@@ -881,6 +882,14 @@ func (ca *CA) canRegister(registrar string, newMemberRole string, newMemberMetad
 	}
 	// See if the metadata to be registered is acceptable for the registrar
 	return registrarMetadata.canRegister(registrar, newMemberRole, newMemberMetadata)
+}
+
+func (ca *CA) GetType() node.NodeType {
+	return node.NodeMemberCA
+}
+
+func (ca *CA) GetName() string {
+	return "membersrvc"
 }
 
 // Convert a string to a MemberMetadata

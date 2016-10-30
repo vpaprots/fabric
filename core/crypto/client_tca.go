@@ -88,7 +88,7 @@ func (client *clientImpl) loadTCertOwnerKDFKey() error {
 		return err
 	}
 
-	csp, err := bccsp.GetDefault()
+	csp, err := bccsp.GetDefault(int(client.GetType()))
 	if err != nil {
 		client.Errorf("Failed getting BCCSP: [%s].", err)
 
@@ -157,7 +157,7 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 	// Timestamp assigned, RandValue assigned and counter reinitialized to 1 per batch
 	// Decrypt ct to TCertIndex (TODO: || EnrollPub_Key || EnrollID ?)
 
-	csp, err := bccsp.GetDefault()
+	csp, err := bccsp.GetDefault(int(client.GetType()))
 	if err != nil {
 		client.Errorf("Failed getting BCCSP: [%s].", err)
 
@@ -197,7 +197,7 @@ func (client *clientImpl) getTCertFromExternalDER(der []byte) (tCert, error) {
 		// Computable by TCA / Auditor: TCertPub_Key = EnrollPub_Key + ExpansionValue G
 		// using elliptic curve point addition per NIST FIPS PUB 186-4- specified P-384
 
-		csp, err := bccsp.GetDefault()
+		csp, err := bccsp.GetDefault(int(client.GetType()))
 		if err != nil {
 			client.Errorf("Failed getting BCCSP: [%s].", err)
 
@@ -230,7 +230,7 @@ func (client *clientImpl) getTCertFromDER(certBlk *TCertDBBlock) (certBlock *TCe
 		return nil, fmt.Errorf("KDF key not initialized yet")
 	}
 
-	csp, err := bccsp.GetDefault()
+	csp, err := bccsp.GetDefault(int(client.GetType()))
 	if err != nil {
 		client.Errorf("Failed getting BCCSP: [%s].", err)
 
@@ -335,7 +335,7 @@ func (client *clientImpl) getTCertsFromTCA(attrhash string, attributes []string,
 
 	//	client.debug("TCertOwnerKDFKey [%s].", utils.EncodeBase64(TCertOwnerKDFKey))
 
-	csp, err := bccsp.GetDefault()
+	csp, err := bccsp.GetDefault(int(client.GetType()))
 	if err != nil {
 		client.Errorf("Failed getting BCCSP: [%s].", err)
 

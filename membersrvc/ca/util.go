@@ -73,7 +73,7 @@ func MemberRoleToString(role pb.Role) (string, error) {
 }
 
 func ECDSASignDirect(key bccsp.Key, msg []byte) (*big.Int, *big.Int, error) {
-	csp, err := bccsp.GetDefault()
+	csp, err := bccsp.GetDefault(int(new(CA).GetType())) //just need the type
 	if err != nil {
 		return nil, nil, err
 	}
