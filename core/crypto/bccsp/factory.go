@@ -70,12 +70,7 @@ func initFactories() error {
 		}
 
 		// Create default non-ephemeral (long-term) BCCSP
-		defaultBCCSP, factoriesInitError = createDefaultBCCSP()
-		if factoriesInitError != nil {
-			return
-		}
-
-		defaultClientBCCSP, factoriesInitError = getBCCSPInternal(&GenericFactoryOpts{SOFTWARE_BASED_FACTORY_NAME, false})
+		defaultBCCSP, defaultClientBCCSP, factoriesInitError = createDefaultBCCSP()
 		if factoriesInitError != nil {
 			return
 		}
@@ -97,13 +92,18 @@ func initFactoriesMap() error {
 	return nil
 }
 
-func createDefaultBCCSP() (BCCSP, error) {
+func createDefaultBCCSP() (BCCSP, BCCSP, error) {
 	defaultBCCSPFactoryName := viper.GetString("security.bccsp.default")
 	if defaultBCCSPFactoryName == "" {
 		defaultBCCSPFactoryName = SOFTWARE_BASED_FACTORY_NAME
 	}
-
-	return getBCCSPInternal(&GenericFactoryOpts{defaultBCCSPFactoryName, false})
+        
+        csp, err := getBCCSPInternal(&GenericFactoryOpts{defaultBCCSPFactoryName, false})
+        if err == nil && defaultBCCSPFactoryName == "P11" {
+                csp2, err := getBCCSPInternal(&GenericFactoryOpts{SOFTWARE_BASED_FACTORY_NAME, false})
+                return csp, csp2, err
+        }
+	return csp, csp, err
 }
 
 func getBCCSPInternal(opts FactoryOpts) (BCCSP, error) {
