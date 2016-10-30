@@ -24,6 +24,8 @@ import (
 	"errors"
 	"fmt"
 
+	"runtime/debug"
+
 	"github.com/hyperledger/fabric/core/crypto/bccsp"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
@@ -31,19 +33,21 @@ import (
 func (node *nodeImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {
 	switch signKey.(type) {
 	case bccsp.Key:
-		csp, err := bccsp.GetDefault()
+		csp, err := bccsp.GetDefault(int(node.GetType()))
 		if err != nil {
 			return nil, err
 		}
 
 		return csp.Sign(signKey.(bccsp.Key), primitives.Hash(msg), nil)
 	default:
+		log.Critical("node_sign sign got ecdsa.PrivateKey\n")
+		debug.PrintStack()
 		return primitives.ECDSASign(signKey, msg)
 	}
 }
 
 func (node *nodeImpl) signWithEnrollmentKey(msg []byte) ([]byte, error) {
-	csp, err := bccsp.GetDefault()
+	csp, err := bccsp.GetDefault(int(node.GetType()))
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +56,7 @@ func (node *nodeImpl) signWithEnrollmentKey(msg []byte) ([]byte, error) {
 }
 
 func (node *nodeImpl) ecdsaSignWithEnrollmentKey(msg []byte) (*big.Int, *big.Int, error) {
-	csp, err := bccsp.GetDefault()
+	csp, err := bccsp.GetDefault(int(node.GetType()))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -84,7 +88,7 @@ func (node *nodeImpl) verifySignCapability(tempSK interface{}, certPK interface{
 	case bccsp.Key:
 		msg := []byte("This is a message to be signed and verified by ECDSA!")
 
-		csp, err := bccsp.GetDefault()
+		csp, err := bccsp.GetDefault(int(node.GetType()))
 		if err != nil {
 			return fmt.Errorf("Failed getting CSP [%s]", err)
 		}
@@ -103,6 +107,9 @@ func (node *nodeImpl) verifySignCapability(tempSK interface{}, certPK interface{
 			return errors.New("Keys incompatible.")
 		}
 	case *ecdsa.PrivateKey:
+		log.Critical("verifySignCapability got ecdsa.PrivateKey\n")
+		debug.PrintStack()
+
 		msg := []byte("This is a message to be signed and verified by ECDSA!")
 
 		sigma, err := primitives.ECDSASign(tempSK, msg)

@@ -20,6 +20,8 @@ func (f *P11BCCSPFactory) Name() string {
 	return P11_BASED_FACTORY_NAME
 }
 
+var libInitOnce sync.Once
+
 func (f *P11BCCSPFactory) Get(opts FactoryOpts) (BCCSP, error) {
 	// Validate arguments
 	if opts == nil {
@@ -29,6 +31,8 @@ func (f *P11BCCSPFactory) Get(opts FactoryOpts) (BCCSP, error) {
 	if opts.FactoryName() != f.Name() {
 		return nil, fmt.Errorf("Invalid Provider Name [%s]. This is [%s]", opts.FactoryName(), f.Name())
 	}
+
+	libInitOnce.Do(initP11)
 
 	if !opts.Ephemeral() {
 		f.defaultBCCSPInitOnce.Do(func() {

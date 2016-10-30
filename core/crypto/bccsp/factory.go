@@ -10,8 +10,8 @@ import (
 
 var (
 	// Default BCCSP
-	defaultBCCSP BCCSP
-
+	defaultBCCSP       BCCSP
+	defaultClientBCCSP BCCSP
 	// BCCSP Factories
 	factories map[string]Factory
 
@@ -41,12 +41,16 @@ type FactoryOpts interface {
 }
 
 // GetDefault returns a non-ephemeral (long-term) BCCSP
-func GetDefault() (BCCSP, error) {
+func GetDefault(ident int) (BCCSP, error) {
 	if err := initFactories(); err != nil {
 		return nil, err
 	}
-
-	return defaultBCCSP, nil
+	switch ident {
+	case 0: //crypto.NodeClient:
+		return defaultClientBCCSP, nil
+	default:
+		return defaultBCCSP, nil
+	}
 }
 
 // GetBCCSP returns a BCCSP created according to the options passed in input.
@@ -67,6 +71,11 @@ func initFactories() error {
 
 		// Create default non-ephemeral (long-term) BCCSP
 		defaultBCCSP, factoriesInitError = createDefaultBCCSP()
+		if factoriesInitError != nil {
+			return
+		}
+
+		defaultClientBCCSP, factoriesInitError = getBCCSPInternal(&GenericFactoryOpts{SOFTWARE_BASED_FACTORY_NAME, false})
 		if factoriesInitError != nil {
 			return
 		}

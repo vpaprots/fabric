@@ -32,6 +32,8 @@ const (
 	NodePeer NodeType = 1
 	// NodeValidator a validator
 	NodeValidator NodeType = 2
+	// NodeMemberCA is membership services
+	NodeMemberCA NodeType = 3
 )
 
 // Node represents a crypto object having a name
