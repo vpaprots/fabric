@@ -47,7 +47,7 @@ var (
 )
 
 func initP11() {
-	ctx = loadlib()
+	loadlib()
 }
 
 // P11BCCSP is the PKCS11-based implementation of the BCCSP.
@@ -194,52 +194,58 @@ func algconst2oid(alg int) (oid []byte) {
 }
 
 //--------------------------------------
-func loadlib() *pkcs11.Ctx {
+func loadlib() {
 	lib := viper.GetString("security.bccsp.pkcs11.library")
+	p11BCCSPLog.Debugf("Loading pkcs11 library [%s]\n", lib)
 	if lib == "" {
 		p11BCCSPLog.Fatalf("P11: no library default\n")
-		return nil
+		return
 	}
 
-	pkcslib := pkcs11.New(lib)
-	if pkcslib == nil {
+	ctx = pkcs11.New(lib)
+	if ctx == nil {
 		p11BCCSPLog.Fatalf("P11: instantiate failed [%s]\n", lib)
-		return nil
+		return
 	}
 
-	pkcslib.Initialize()
+	ctx.Initialize()
 
-	// insert first session so we can log in
-	var slot uint = 4
-	session, err := pkcslib.OpenSession(slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
-	if err != nil {
-		p11BCCSPLog.Fatalf("P11: OpenSession [%s]\n", err)
-	}
-
+	session := get_session()
 	pin := viper.GetString("security.bccsp.pkcs11.pin")
 	if pin == "" {
 		p11BCCSPLog.Fatal("P11: no PIN set\n")
 	}
-	err = pkcslib.Login(session, pkcs11.CKU_USER, pin)
+	err := ctx.Login(session, pkcs11.CKU_USER, pin)
 	if err != nil {
 		p11BCCSPLog.Fatalf("P11: login failed [%s]\n", err)
 	}
 
-	sessions <- session
-	return pkcslib
+	return_session(session)
+	return
 }
 
 func get_session() (session pkcs11.SessionHandle) {
 	select {
 	case session = <-sessions:
-		// got one
+		p11BCCSPLog.Debugf("Reusing existing pkcs11 session %x\n", session)
+
 	default:
 		// create one
+		var s pkcs11.SessionHandle
+		var err error = nil
 		var slot uint = 4
-		s, err := ctx.OpenSession(slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
+		for i := 0; i < 10; i++ {
+			s, err = ctx.OpenSession(slot, pkcs11.CKF_SERIAL_SESSION|pkcs11.CKF_RW_SESSION)
+			if err != nil {
+				p11BCCSPLog.Warningf("P11: OpenSession failed, retrying [%s]\n", err)
+			} else {
+				break
+			}
+		}
 		if err != nil {
 			p11BCCSPLog.Fatalf("P11: OpenSession [%s]\n", err)
 		}
+		p11BCCSPLog.Debugf("Created new pkcs11 session %x\n", session)
 		session = s
 	}
 	return session
@@ -504,7 +510,6 @@ func generate_pkcs11(alg int, opts KeyGenOpts) (ski, ecpt []byte, err error) {
 		p11BCCSPLog.Fatalf("P11: keypair generate failed [%s]\n", err)
 	}
 
-	p11BCCSPLog.Debugf("P11 init/1")
 	list_attrs(p11lib, session, prv)
 	list_attrs(p11lib, session, pub)
 
@@ -533,7 +538,6 @@ func generate_pkcs11(alg int, opts KeyGenOpts) (ski, ecpt []byte, err error) {
 		p11BCCSPLog.Fatalf("P11: set-ID-to-SKI[private] failed [%s]\n", err)
 	}
 
-	p11BCCSPLog.Debugf("P11 init/2")
 	list_attrs(p11lib, session, prv)
 	list_attrs(p11lib, session, pub)
 
