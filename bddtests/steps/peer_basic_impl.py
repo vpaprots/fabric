@@ -378,7 +378,7 @@ def step_impl(context, seconds):
 
     aliases = context.table.headings
     containers = [context.containerAliasMap[alias] for alias in aliases]
-    transactionCommittedToContainersWithinTimeout(context, containers, int(seconds))
+    transactionCommittedToContainersWithinTimeout(context, containers, 3*int(seconds))
 
 def transactionCommittedToContainersWithinTimeout(context, containers, timeout):
     # Set the max time before stopping attempts
@@ -590,7 +590,7 @@ def step_impl(context):
 def step_impl(context, seconds):
     compose_op(context, "start")
 
-    timeout = int(seconds)
+    timeout = 3*int(seconds)
     assert bdd_compose_util.allContainersAreReadyWithinTimeout(context, timeout), \
         "Peers did not come up within {} seconds, aborting.".format(timeout)
 

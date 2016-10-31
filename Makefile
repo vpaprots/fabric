@@ -198,7 +198,7 @@ build/image/src/.dummy: build/image/base/.dummy $(PROJECT_FILES)
 	@cat images/src/Dockerfile.in \
 		| sed -e 's/_TAG_/$(DOCKER_TAG)/g' \
 		> $(@D)/Dockerfile
-	@git ls-files | tar -jcT - > $(@D)/gopath.tar.bz2
+	@git ls-files | tar -jcT - /root/acsp-pkcs11-client_1.4-2_s390x.deb /opt/ibm/acsp-pkcs11-client/config/acsp.properties > $(@D)/gopath.tar.bz2
 	docker build -t $(PROJECT_NAME)-src $(@D)
 	docker tag $(PROJECT_NAME)-src $(PROJECT_NAME)-src:$(DOCKER_TAG)
 	@touch $@

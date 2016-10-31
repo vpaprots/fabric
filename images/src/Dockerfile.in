@@ -1,2 +1,6 @@
 FROM hyperledger/fabric-baseimage:latest
 ADD gopath.tar.bz2 $GOPATH/src/github.com/hyperledger/fabric
+ENV ACSP_P11=/opt/ibm/acsp-pkcs11-client/config/acsp.properties
+RUN mkdir -p /opt/ibm/acsp-pkcs11-client/config
+RUN cp $GOPATH/src/github.com/hyperledger/fabric/opt/ibm/acsp-pkcs11-client/config/acsp.properties /opt/ibm/acsp-pkcs11-client/config/acsp.properties
+RUN dpkg -i $GOPATH/src/github.com/hyperledger/fabric/root/acsp-pkcs11-client_1.4-2_s390x.deb
