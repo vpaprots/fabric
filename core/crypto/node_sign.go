@@ -24,8 +24,6 @@ import (
 	"errors"
 	"fmt"
 
-	"runtime/debug"
-
 	"github.com/hyperledger/fabric/core/crypto/bccsp"
 	"github.com/hyperledger/fabric/core/crypto/primitives"
 )
@@ -40,8 +38,6 @@ func (node *nodeImpl) sign(signKey interface{}, msg []byte) ([]byte, error) {
 
 		return csp.Sign(signKey.(bccsp.Key), primitives.Hash(msg), nil)
 	default:
-		log.Critical("node_sign sign got ecdsa.PrivateKey\n")
-		debug.PrintStack()
 		return primitives.ECDSASign(signKey, msg)
 	}
 }
@@ -107,9 +103,6 @@ func (node *nodeImpl) verifySignCapability(tempSK interface{}, certPK interface{
 			return errors.New("Keys incompatible.")
 		}
 	case *ecdsa.PrivateKey:
-		log.Critical("verifySignCapability got ecdsa.PrivateKey\n")
-		debug.PrintStack()
-
 		msg := []byte("This is a message to be signed and verified by ECDSA!")
 
 		sigma, err := primitives.ECDSASign(tempSK, msg)
