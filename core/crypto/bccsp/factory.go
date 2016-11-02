@@ -97,12 +97,12 @@ func createDefaultBCCSP() (BCCSP, BCCSP, error) {
 	if defaultBCCSPFactoryName == "" {
 		defaultBCCSPFactoryName = SOFTWARE_BASED_FACTORY_NAME
 	}
-        
-        csp, err := getBCCSPInternal(&GenericFactoryOpts{defaultBCCSPFactoryName, false})
-        if err == nil && defaultBCCSPFactoryName == "P11" {
-                csp2, err := getBCCSPInternal(&GenericFactoryOpts{SOFTWARE_BASED_FACTORY_NAME, false})
-                return csp, csp2, err
-        }
+
+	csp, err := getBCCSPInternal(&GenericFactoryOpts{defaultBCCSPFactoryName, false})
+	if err == nil && defaultBCCSPFactoryName == "P11" {
+		csp2, err := getBCCSPInternal(&GenericFactoryOpts{SOFTWARE_BASED_FACTORY_NAME, false})
+		return csp, csp2, err
+	}
 	return csp, csp, err
 }
 
