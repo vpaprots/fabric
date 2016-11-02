@@ -42,3 +42,4 @@ RUN rm -rf /tmp/gradle-2.10 /opt/gradle-2.10
 WORKDIR /root
 # Build java shim after copying proto files from fabric/proto
 RUN core/chaincode/shim/java/javabuild.sh
+RUN apt-get -y autoremove && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
