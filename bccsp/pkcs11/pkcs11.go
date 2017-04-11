@@ -120,9 +120,11 @@ func (csp *impl) getSession() (session pkcs11.SessionHandle) {
 func (csp *impl) returnSession(session pkcs11.SessionHandle) {
 	select {
 	case csp.sessions <- session:
+		logger.Debugf("Returned to cache pkcs11 session %+v on slot %d\n", session, csp.slot)
 		// returned session back to session cache
 	default:
 		// have plenty of sessions in cache, dropping
+		logger.Debugf("Dropping pkcs11 session %+v on slot %d\n", session, csp.slot)
 		csp.ctx.CloseSession(session)
 	}
 }

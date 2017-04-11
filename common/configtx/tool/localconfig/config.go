@@ -265,5 +265,5 @@ func (p *Profile) completeInitialization(configDir string) {
 
 func translatePaths(configDir string, org *Organization) {
 	cf.TranslatePathInPlace(configDir, &org.MSPDir)
-	cf.TranslatePathInPlace(configDir, &org.BCCSP.SwOpts.FileKeystore.KeyStorePath)
+	//cf.TranslatePathInPlace(configDir, &org.BCCSP.SwOpts.FileKeystore.KeyStorePath)
 }

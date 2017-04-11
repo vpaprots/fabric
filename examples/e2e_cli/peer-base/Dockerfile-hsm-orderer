@@ -1,0 +1,3 @@
+FROM hyperledger/fabric-orderer
+COPY install-softhsm2.sh /tmp
+RUN bash /tmp/install-softhsm2.sh && rm -f install-softhsm2.sh
