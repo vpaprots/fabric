@@ -40,7 +40,7 @@ function printDockerOrderer() {
 	then
 		hsmvolume="- $(findTokenDir $label)"
 		hsmvars=$(cat << EOM
-      - ORDERER_GENERAL_BCCSP_PKCS11_LIBRARY=/usr/lib/softhsm/libsofthsm2.so
+      - ORDERER_GENERAL_BCCSP_PKCS11_LIBRARY=/usr/lib/libacsp-pkcs11.so
       - ORDERER_GENERAL_BCCSP_PKCS11_PIN=98765432
       - ORDERER_GENERAL_BCCSP_PKCS11_LABEL=ForFabric${label}
       - ORDERER_GENERAL_BCCSP_PKCS11_FILEKEYSTORE_KEYSTORE=/var/hyperledger/orderer/keystore
@@ -119,7 +119,7 @@ function printDockerPeer() {
 	then
 		hsmvolume="- $(findTokenDir $label)"
 		hsmvars=$(cat << EOM
-      - CORE_PEER_BCCSP_PKCS11_LIBRARY=/usr/lib/softhsm/libsofthsm2.so
+      - CORE_PEER_BCCSP_PKCS11_LIBRARY=/usr/lib/libacsp-pkcs11.so
       - CORE_PEER_BCCSP_PKCS11_PIN=98765432
       - CORE_PEER_BCCSP_PKCS11_LABEL=ForFabric${label}
       - CORE_PEER_BCCSP_PKCS11_FILEKEYSTORE_KEYSTORE=/var/hyperledger/production/keystore
@@ -209,11 +209,11 @@ function printCliDocker() {
 	then
 		hsmvolume="- $SOFTHSMTOK:/var/lib/softhsm/tokens"
 		hsmvars=$(cat << EOM
-      - CORE_PEER_BCCSP_PKCS11_LIBRARY=/usr/lib/softhsm/libsofthsm2.so
+      - CORE_PEER_BCCSP_PKCS11_LIBRARY=/usr/lib/libacsp-pkcs11.so
       - CORE_PEER_BCCSP_PKCS11_PIN=98765432
       - CORE_PEER_BCCSP_PKCS11_LABEL=ForFabric${label}
       - CORE_PEER_BCCSP_PKCS11_FILEKEYSTORE_KEYSTORE=/var/hyperledger/production/keystore
-      - ORDERER_GENERAL_BCCSP_PKCS11_LIBRARY=/usr/lib/softhsm/libsofthsm2.so
+      - ORDERER_GENERAL_BCCSP_PKCS11_LIBRARY=/usr/lib/libacsp-pkcs11.so
       - ORDERER_GENERAL_BCCSP_PKCS11_PIN=98765432
       - ORDERER_GENERAL_BCCSP_PKCS11_LABEL=ForFabric${label}
       - ORDERER_GENERAL_BCCSP_PKCS11_FILEKEYSTORE_KEYSTORE=/var/hyperledger/orderer/keystore
@@ -661,7 +661,7 @@ make -C ../.. configtxgen
 if [ ${HSM} -ne 0 ]
 then
 	echo ======== INITIALIZING HSM TOKENS ========
-	export PKCS11_LIB=/usr/lib/s390x-linux-gnu/softhsm/libsofthsm2.so
+	export PKCS11_LIB=/usr/lib/libacsp-pkcs11.so
 	export PKCS11_PIN=98765432
 	export PKCS11_LABEL=ForFabric #PREFIX
 	for ORG in $(seq -f "peerOrg%g" 1 ${ORGS})

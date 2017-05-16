@@ -1,3 +1,6 @@
 FROM hyperledger/fabric-orderer
 COPY install-softhsm2.sh /tmp
+COPY acsp-pkcs11-client_1.4-2_s390x.deb /tmp
+COPY acsp.properties /tmp  
+ENV ACSP_P11=/opt/ibm/acsp-pkcs11-client/config/acsp.properties
 RUN bash /tmp/install-softhsm2.sh && rm -f install-softhsm2.sh
