@@ -8,7 +8,7 @@ PEERNODES=$2
 COUNTER=0
 MAX_RETRY=5
 ORDERER_CA=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto-config-tls/ordererOrganizations/ordererOrg1/orderers/ordererorg1orderer1/cacerts/ordererOrg1-cert.pem
-PAUSE=read
+#PAUSE=read
 
 echo "Channel name : "$CHANNEL_NAME
 
@@ -26,13 +26,13 @@ setGlobals () {
 	peer=$2
 
 	#export CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto-config/peerOrganizations/peerOrg${org}/users/Admin@peerOrg${org}
-	CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto-config/peerOrganizations/peerOrg${org}/peers/peerOrg${org}Peer${peer}
+	CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto-config/peerOrganizations/peerOrg${org}/peers/peerorg${org}peer${peer}
 	CORE_PEER_ADDRESS=peerorg${org}peer${peer}:7051
 	CORE_PEER_BCCSP_PKCS11_LABEL=ForFabricpeerOrg${org}Peer${peer}
 	#export CORE_PEER_BCCSP_PKCS11_LABEL=ForFabricAdminpeerOrg${org}
 
 	CORE_PEER_LOCALMSPID="Org${org}MSP"
-	CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto-config/peerOrganizations/peerOrg${org}/peers/peerorg${org}peer${peer}/cacerts/tls-peerOrg${org}-cert.pem
+	CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto-config/peerOrganizations/peerOrg${org}/peers/peerorg${org}peer${peer}/cacerts/tls-peerorg${org}-cert.pem
 	env |grep CORE
 }
 

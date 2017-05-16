@@ -3,7 +3,8 @@
 set -e
 
 # Defaults
-SOFTHSMTOK=${HOME}/softhsm/tokens
+#SOFTHSMTOK=${HOME}/softhsm/tokens
+SOFTHSMTOK=/var/lib/softhsm/tokens
 BASEDIR=.
 
 ORDERERNODES=1
@@ -39,7 +40,7 @@ function printDockerOrderer() {
 	then
 		hsmvolume="- $(findTokenDir $label)"
 		hsmvars=$(cat << EOM
-      - ORDERER_GENERAL_BCCSP_PKCS11_LIBRARY=/usr/lib/$(uname -m)-linux-gnu/softhsm/libsofthsm2.so
+      - ORDERER_GENERAL_BCCSP_PKCS11_LIBRARY=/usr/lib/softhsm/libsofthsm2.so
       - ORDERER_GENERAL_BCCSP_PKCS11_PIN=98765432
       - ORDERER_GENERAL_BCCSP_PKCS11_LABEL=ForFabric${label}
       - ORDERER_GENERAL_BCCSP_PKCS11_FILEKEYSTORE_KEYSTORE=/var/hyperledger/orderer/keystore
@@ -72,7 +73,7 @@ EOM
     container_name: $label
     $image
     environment:
-      #- ORDERER_GENERAL_LOGLEVEL=debug
+      - ORDERER_GENERAL_LOGLEVEL=INFO
       - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
       - ORDERER_GENERAL_GENESISMETHOD=file
       - ORDERER_GENERAL_GENESISFILE=/var/hyperledger/orderer/localMspConfig/orderer.block
@@ -84,8 +85,8 @@ ${hsmvars}
     working_dir: /opt/gopath/src/github.com/hyperledger/fabric
     command: orderer
     volumes:
-      - ${BASEDIR}/crypto-config-tls/ordererOrganizations/${org}/orderers/${label}:/var/hyperledger/orderer/tlsConfig
-      - ${BASEDIR}/crypto-config/ordererOrganizations/${org}/orderers/${label}:/var/hyperledger/orderer/localMspConfig
+      - ${BASEDIR}/crypto-config-tls/ordererOrganizations/${org}/orderers/${lclabel}:/var/hyperledger/orderer/tlsConfig
+      - ${BASEDIR}/crypto-config/ordererOrganizations/${org}/orderers/${lclabel}:/var/hyperledger/orderer/localMspConfig
       ${hsmvolume}
     ports:
       - 7050:7050
@@ -118,7 +119,7 @@ function printDockerPeer() {
 	then
 		hsmvolume="- $(findTokenDir $label)"
 		hsmvars=$(cat << EOM
-      - CORE_PEER_BCCSP_PKCS11_LIBRARY=/usr/lib/$(uname -m)-linux-gnu/softhsm/libsofthsm2.so
+      - CORE_PEER_BCCSP_PKCS11_LIBRARY=/usr/lib/softhsm/libsofthsm2.so
       - CORE_PEER_BCCSP_PKCS11_PIN=98765432
       - CORE_PEER_BCCSP_PKCS11_LABEL=ForFabric${label}
       - CORE_PEER_BCCSP_PKCS11_FILEKEYSTORE_KEYSTORE=/var/hyperledger/production/keystore
@@ -160,7 +161,7 @@ EOM
 	
 	cat >> docker-compose-gen.yaml << EOM
   $lclabel:
-    container_name: $label
+    container_name: $lclabel
     $image
     working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
     command: peer node start --peer-defaultchain=false #--logging-level=debug:bccsp=debug:bccsp_sw=debug:bccsp_p11=debug:msp=debug
@@ -176,7 +177,7 @@ ${hsmvars}
       # from peer-base/peer-base(-no-tls).yaml
       - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
       - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=e2ecli_default
-      - CORE_LOGGING_LEVEL=ERROR
+      - CORE_LOGGING_LEVEL=INFO
       - CORE_NEXT=true
       - CORE_PEER_ENDORSER_ENABLED=true
       - CORE_PEER_GOSSIP_USELEADERELECTION=true
@@ -184,8 +185,8 @@ ${hsmvars}
       - CORE_PEER_PROFILE_ENABLED=true    
     volumes:
         - /var/run/:/host/var/run/ #TLS, orderer.block
-        - ${BASEDIR}/crypto-config-tls/peerOrganizations/${orgLabel}/peers/${label}:/etc/hyperledger/fabric/tlsConfig
-        - ${BASEDIR}/crypto-config/peerOrganizations/${orgLabel}/peers/${label}:/etc/hyperledger/fabric/msp
+        - ${BASEDIR}/crypto-config-tls/peerOrganizations/${orgLabel}/peers/${lclabel}:/etc/hyperledger/fabric/tlsConfig
+        - ${BASEDIR}/crypto-config/peerOrganizations/${orgLabel}/peers/${lclabel}:/etc/hyperledger/fabric/msp
         ${hsmvolume}
     ports:
       - ${portbase}051:7051
@@ -208,11 +209,11 @@ function printCliDocker() {
 	then
 		hsmvolume="- $SOFTHSMTOK:/var/lib/softhsm/tokens"
 		hsmvars=$(cat << EOM
-      - CORE_PEER_BCCSP_PKCS11_LIBRARY=/usr/lib/$(uname -m)-linux-gnu/softhsm/libsofthsm2.so
+      - CORE_PEER_BCCSP_PKCS11_LIBRARY=/usr/lib/softhsm/libsofthsm2.so
       - CORE_PEER_BCCSP_PKCS11_PIN=98765432
       - CORE_PEER_BCCSP_PKCS11_LABEL=ForFabric${label}
       - CORE_PEER_BCCSP_PKCS11_FILEKEYSTORE_KEYSTORE=/var/hyperledger/production/keystore
-      - ORDERER_GENERAL_BCCSP_PKCS11_LIBRARY=/usr/lib/$(uname -m)-linux-gnu/softhsm/libsofthsm2.so
+      - ORDERER_GENERAL_BCCSP_PKCS11_LIBRARY=/usr/lib/softhsm/libsofthsm2.so
       - ORDERER_GENERAL_BCCSP_PKCS11_PIN=98765432
       - ORDERER_GENERAL_BCCSP_PKCS11_LABEL=ForFabric${label}
       - ORDERER_GENERAL_BCCSP_PKCS11_FILEKEYSTORE_KEYSTORE=/var/hyperledger/orderer/keystore
@@ -649,7 +650,7 @@ done
 echo ======== CLEANUP ========
 docker rm -f $(docker ps -a -q) || true
 docker rmi -f $(docker images | grep dev) || true
-rm -rf ~/softhsm/tokens/* ${BASEDIR}/crypto-config ${BASEDIR}/crypto-config-tls configtx.yaml docker-compose-gen.yaml
+rm -rf /var/lib/softhsm/tokens/* ${BASEDIR}/crypto-config ${BASEDIR}/crypto-config-tls configtx.yaml docker-compose-gen.yaml
 
 echo ======== BUILDING CRYPTOGEN ========
 go build -o crypto-gen -ldflags -s github.com/hyperledger/fabric/examples/e2e_cli/cryptogen
@@ -660,7 +661,7 @@ make -C ../.. configtxgen
 if [ ${HSM} -ne 0 ]
 then
 	echo ======== INITIALIZING HSM TOKENS ========
-	export PKCS11_LIB=/usr/local/Cellar/softhsm/2.1.0/lib/softhsm/libsofthsm2.so
+	export PKCS11_LIB=/usr/lib/s390x-linux-gnu/softhsm/libsofthsm2.so
 	export PKCS11_PIN=98765432
 	export PKCS11_LABEL=ForFabric #PREFIX
 	for ORG in $(seq -f "peerOrg%g" 1 ${ORGS})
