@@ -874,6 +874,78 @@ func TestECDSAKeyImportFromECDSAPublicKey(t *testing.T) {
 	}
 }
 
+func TestECDSAKeyImportFromGoECDSA(t *testing.T) {
+
+	// Generate an ECDSA key
+	tempk, err := currentBCCSP.KeyGen(&bccsp.ECDSAKeyGenOpts{Temporary: false})
+	if err != nil {
+		t.Fatalf("Failed generating ECDSA key [%s]", err)
+	}
+
+	k, err := ecdsa.GenerateKey(tempk.(*ecdsaPrivateKey).pub.pub.Curve, rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed generating ECDSA key for [%v]: [%s]", tempk.(*ecdsaPrivateKey).pub.pub.Curve, err)
+	}
+
+	pkRaw, err := x509.MarshalPKIXPublicKey(k.PublicKey)
+	if err != nil {
+		t.Fatalf("Failed getting ECDSA raw public key [%s]", err)
+	}
+
+	pub, err := utils.DERToPublicKey(pkRaw)
+	if err != nil {
+		t.Fatalf("Failed converting raw to ecdsa.PublicKey [%s]", err)
+	}
+
+	// Import the ecdsa.PublicKey
+	pk2, err := currentBCCSP.KeyImport(pub, &bccsp.ECDSAGoPublicKeyImportOpts{Temporary: false})
+	if err != nil {
+		t.Fatalf("Failed importing ECDSA public key [%s]", err)
+	}
+	if pk2 == nil {
+		t.Fatal("Failed importing ECDSA public key. Return BCCSP key cannot be nil.")
+	}
+
+	// Sign and verify with the imported public key
+	msg := []byte("Hello World")
+
+	digest, err := currentBCCSP.Hash(msg, &bccsp.SHAOpts{})
+	if err != nil {
+		t.Fatalf("Failed computing HASH [%s]", err)
+	}
+
+	r, s, err := ecdsa.Sign(rand.Reader, k, digest)
+	if err != nil {
+		t.Fatalf("Failed signing [%s]", err)
+	}
+
+	// check for low-S
+	halfOrder, ok := curveHalfOrders[k.Curve]
+	if !ok {
+		t.Fatalf("Curve not recognized [%s]", k.Curve)
+	}
+
+	// is s > halfOrder Then
+	if s.Cmp(halfOrder) == 1 {
+		// Set s to N - s that will be then in the lower part of signature space
+		// less or equal to half order
+		s.Sub(k.Params().N, s)
+	}
+
+	signature, err := marshalECDSASignature(r, s)
+	if err != nil {
+		t.Fatalf("Failed marshaling signature [%s]", err)
+	}
+
+	valid, err := currentBCCSP.Verify(pk2, signature, digest, nil)
+	if err != nil {
+		t.Fatalf("Failed verifying ECDSA signature [%s]", err)
+	}
+	if !valid {
+		t.Fatal("Failed verifying ECDSA signature. Signature not valid.")
+	}
+}
+
 func TestECDSAKeyImportFromECDSAPrivateKey(t *testing.T) {
 	if currentBCCSP.(*impl).noPrivImport {
 		t.Skip("Key import turned off. Skipping Derivation tests as they currently require Key Import.")
